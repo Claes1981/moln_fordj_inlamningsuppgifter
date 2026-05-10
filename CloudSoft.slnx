@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CloudSoft.Data/CloudSoft.Data.csproj" />
+    <Project Path="src/CloudSoft.Domain/CloudSoft.Domain.csproj" />
+    <Project Path="src/CloudSoft.Services/CloudSoft.Services.csproj" />
+    <Project Path="src/CloudSoft.Web/CloudSoft.Web.csproj" />
+  </Folder>
+</Solution>
