@@ -10,6 +10,7 @@ Course assignment: "Inlämningsuppgift 1" for MolnFordj (Cloud Developer) progra
 - **Azure Container Registry** — image storage
 - **GitHub Actions** — CI/CD pipeline (build, test, push, deploy)
 - **CosmosDB** — local dev uses Podman container, production uses Azure CosmosDB
+- **Bicep** — Infrastructure as Code for Azure resource provisioning
 
 ## Structure (when built)
 
@@ -18,13 +19,39 @@ Course assignment: "Inlämningsuppgift 1" for MolnFordj (Cloud Developer) progra
 - `.github/workflows/` — CI/CD pipeline
 - `doc/` — assignment materials and user stories (not part of the app)
 
+## Assignment Overview
+
+The assignment has **5 delmoment** (sub-tasks) and **3 cross-cutting concerns**:
+
+### Delmoment
+
+1. **Agilt arbetssätt och inner loop** — 3–5 user stories, inner loop description
+2. **Containerisering och lokal utvecklingsmiljö** — Dockerfile, Podman Compose, local stack
+3. **Autentisering, auktorisering och datalager** — user roles, auth, security, data persistence
+4. **CI/CD och driftsättning på Azure** — GitHub Actions pipeline, Azure deployment
+5. **Verifiering av den driftsatta lösningen** — verify deployed app works from public internet
+
+### Cross-Cutting Concerns
+
+- **Säkerhet** — cookie settings, role control, secret management, registry access, image provenance, network exposure
+- **Infrastructure as Code** — reproducible environment via scripts, templates, or workflow steps
+- **AI-assistenterna** — reflect on how AI assistants were used, where they helped or failed
+
+### Deliverables
+
+- **PDF report** explaining what was built and why (decisions, motivations, structure)
+- **First page** must include: name, screenshot of deployed app with public URL, link to public GitHub repo
+- **GitHub repo** must contain: app code, Dockerfile, docker-compose, infra scripts/templates, GitHub Actions workflow
+- Diagrams must be original, code snippets must be copyable (not screenshots)
+
 ## Key Constraints
 
-- The assignment PDF (`doc/task/assignment-acd-1-swe.pdf`) is **not tracked in Git** (license unclear). Assignment text is in the commit history if needed.
+- The assignment PDF (`doc/task/assignment-acd-1-swe.pdf`) is **not tracked in Git** (license unclear). Markdown version is at `doc/task/assignment-acd-1-swe.md`.
 - Secrets must **never** be committed. Use GitHub Actions secrets or Azure Key Vault.
 - `.env` files are gitignored — use them for local config only.
 - User stories are in `doc/user_stories/` and define the scope.
 - Keep it simple: use only tools and patterns covered in the course labs. Do not introduce advanced patterns beyond what was taught.
+- Course exercises reference: <https://cloud-dev-25.educ8.se/exercises/>
 
 ## Useful Commands
 
