@@ -51,7 +51,18 @@ The assignment has **5 delmoment** (sub-tasks) and **3 cross-cutting concerns**:
 - `.env` files are gitignored — use them for local config only.
 - User stories are in `doc/user_stories/` and define the scope.
 - Keep it simple: use only tools and patterns covered in the course labs. Do not introduce advanced patterns beyond what was taught.
+- Describe what's in scope, what's out of scope, and justify the boundary.
 - Course exercises reference: <https://cloud-dev-25.educ8.se/exercises/>
+
+## Relevant Course Exercises
+
+These exercises from the course cover the skills needed for this assignment:
+
+- **Webapp Development** — MVC, forms, validation, service layer, repository pattern, CosmosDB, auth, Identity: <https://cloud-dev-25.educ8.se/exercises/10-webapp-development/>
+- **Docker** — containerize app, multi-stage builds, Compose: <https://cloud-dev-25.educ8.se/exercises/20-docker/>
+- **Deployment** — CI/CD to Azure Container Apps, OIDC federation: <https://cloud-dev-25.educ8.se/exercises/3-deployment/9-cicd-to-container-apps/>
+- **Cloud Databases** — CosmosDB provisioning (portal, CLI, Bicep): <https://cloud-dev-25.educ8.se/exercises/5-cloud-databases/>
+- **Code Collaboration** — Git, Jira, PR workflow: <https://cloud-dev-25.educ8.se/exercises/15-code-collaboration/>
 
 ## Useful Commands
 
