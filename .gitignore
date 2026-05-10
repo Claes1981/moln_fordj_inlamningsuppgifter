@@ -480,4 +480,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Assignment description document
 doc/task/assignment-acd-1-swe.pdf
