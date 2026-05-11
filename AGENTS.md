@@ -2,72 +2,65 @@
 
 Course assignment: "Inlämningsuppgift 1" for MolnFordj (Cloud Developer) program. Build a containerized .NET MVC web app (CloudSoft Recruitment Portal) and deploy it to Azure Container Apps with CI/CD.
 
+## Architecture
+
+4-project multi-layer solution in `src/`, wired together by `CloudSoft.slnx` (VS2022 v2 solution format — no `.sln` file exists):
+
+| Project | Purpose |
+|---|---|
+| `CloudSoft.Domain` | Entities (`JobPosting`, `JobApplication`), enums (`JobPostingStatus`, `ApplicationStatus`), `IRepository<T>` interface |
+| `CloudSoft.Data` | `CosmosRepository<T>` — generic CosmosDB repository |
+| `CloudSoft.Services` | `IJobPostingService` / `JobPostingService` — business logic with CRUD + publish/close operations |
+| `CloudSoft.Web` | MVC app entrypoint, controllers, views, DI config in `Program.cs` |
+
+Dependency chain: Web → Services → Data → Domain. Web also references Domain directly.
+
 ## Tech Stack
 
-- **.NET MVC web app** with two user roles: `Candidate` and `Administrator`
-- **Podman** — multi-stage Dockerfile, Podman Compose for local dev (app + CosmosDB emulator)
-- **Azure Container Apps** — production hosting
-- **Azure Container Registry** — image storage
-- **GitHub Actions** — CI/CD pipeline (build, test, push, deploy)
-- **CosmosDB** — local dev uses Podman container, production uses Azure CosmosDB
-- **Bicep** — Infrastructure as Code for Azure resource provisioning
+- **.NET 10.0** MVC web app with two user roles: `Candidate` and `Administrator`
+- **CosmosDB** via `Microsoft.Azure.Cosmos` (v3.59.0) — `CosmosClient` registered as singleton in `Program.cs`
+- **Cookie authentication** — hardcoded credentials in `AccountController` (admin/admin123, candidate/candidate123)
+- **Podman** — multi-stage Dockerfile + Podman Compose for local dev (NOT YET CREATED)
+- **Azure Container Apps** — production hosting (NOT YET SET UP)
+- **GitHub Actions** — CI/CD pipeline (NOT YET CREATED)
+- **Bicep** — IaC for Azure resources (NOT YET CREATED)
 
-## Structure (when built)
+## Key Gotchas
 
-- App code lives at the repo root (`.csproj`, `.sln`, `Program.cs`, etc.)
-- `Dockerfile` and `docker-compose.yml` at the repo root
-- `.github/workflows/` — CI/CD pipeline
-- `doc/` — assignment materials and user stories (not part of the app)
+- **No `.sln` file** — solution is `CloudSoft.slnx` (VS2022 v2 format). Use `dotnet build src/CloudSoft.Web/CloudSoft.Web.csproj` or `dotnet run --project src/CloudSoft.Web/CloudSoft.Web.csproj` to target the web project.
+- **CosmosDB connection string required** — `Program.cs` throws `InvalidOperationException` if `ConnectionStrings:CosmosDb` is missing. Local dev needs either a real CosmosDB endpoint or the emulator.
+- **Cookie auth is hardcoded** — `AccountController.Login` checks username/password directly. No database-backed identity.
+- **`SecurePolicy.Always` on cookies** — cookies require HTTPS. Local dev must use HTTPS redirect (already configured in `Program.cs`).
+- **JobPostingsController is admin-only** — `[Authorize(Roles = "Administrator")]` on the entire controller.
+- **Assignment docs are gitignored** — `doc/task/assignment-acd-1-swe.pdf` and `.md` are in `.gitignore`. Don't commit them.
 
-## Assignment Overview
+## Commands
 
-The assignment has **5 delmoment** (sub-tasks) and **3 cross-cutting concerns**:
+- `dotnet build src/CloudSoft.Web/CloudSoft.Web.csproj` — verify compilation
+- `dotnet run --project src/CloudSoft.Web/CloudSoft.Web.csproj` — run locally (requires CosmosDB connection string configured)
+- `podman compose up` — run full stack locally (docker-compose.yml NOT YET CREATED)
+- `podman build -t cloudsoft-recruitment .` — build container image (Dockerfile NOT YET CREATED)
 
-### Delmoment
+## Configuration
 
-1. **Agilt arbetssätt och inner loop** — 3–5 user stories, inner loop description
-2. **Containerisering och lokal utvecklingsmiljö** — Dockerfile, Podman Compose, local stack
-3. **Autentisering, auktorisering och datalager** — user roles, auth, security, data persistence
-4. **CI/CD och driftsättning på Azure** — GitHub Actions pipeline, Azure deployment
-5. **Verifiering av den driftsatta lösningen** — verify deployed app works from public internet
+- `src/CloudSoft.Web/appsettings.json` — minimal config, no connection strings
+- `src/CloudSoft.Web/appsettings.Development.json` — logging only
+- Connection strings must be provided via environment variables, user secrets, or `.env` (gitignored):
+  - `ConnectionStrings:CosmosDb` — required
+  - `CosmosDb:DatabaseName` — defaults to `CloudSoft`
+  - `CosmosDb:ContainerName` — defaults to `JobPostings`
 
-### Cross-Cutting Concerns
+## Assignment Status
 
-- **Säkerhet** — cookie settings, role control, secret management, registry access, image provenance, network exposure
-- **Infrastructure as Code** — reproducible environment via scripts, templates, or workflow steps
-- **AI-assistenterna** — reflect on how AI assistants were used, where they helped or failed
+- Delmoment 1 (Agile/user stories): DONE — user stories in `doc/user_stories/`
+- Delmoment 2 (Containerization): NOT STARTED — need Dockerfile + docker-compose.yml
+- Delmoment 3 (Auth + data layer): DONE — cookie auth, role control, CosmosDB repository, job postings CRUD
+- Delmoment 4 (CI/CD + Azure): NOT STARTED — need GitHub Actions workflow + Bicep IaC
+- Delmoment 5 (Verification): NOT STARTED — depends on deployment
 
-### Deliverables
+## Constraints
 
-- **PDF report** explaining what was built and why (decisions, motivations, structure)
-- **First page** must include: name, screenshot of deployed app with public URL, link to public GitHub repo
-- **GitHub repo** must contain: app code, Dockerfile, docker-compose, infra scripts/templates, GitHub Actions workflow
-- Diagrams must be original, code snippets must be copyable (not screenshots)
-
-## Key Constraints
-
-- The assignment PDF (`doc/task/assignment-acd-1-swe.pdf`) is **not tracked in Git** (license unclear). Markdown version is at `doc/task/assignment-acd-1-swe.md`.
 - Secrets must **never** be committed. Use GitHub Actions secrets or Azure Key Vault.
 - `.env` files are gitignored — use them for local config only.
-- User stories are in `doc/user_stories/` and define the scope.
-- Keep it simple: use only tools and patterns covered in the course labs. Do not introduce advanced patterns beyond what was taught.
-- Describe what's in scope, what's out of scope, and justify the boundary.
-- Course exercises reference: <https://cloud-dev-25.educ8.se/exercises/>
-
-## Relevant Course Exercises
-
-These exercises from the course cover the skills needed for this assignment:
-
-- **Webapp Development** — MVC, forms, validation, service layer, repository pattern, CosmosDB, auth, Identity: <https://cloud-dev-25.educ8.se/exercises/10-webapp-development/>
-- **Docker** — containerize app, multi-stage builds, Compose: <https://cloud-dev-25.educ8.se/exercises/20-docker/>
-- **Deployment** — CI/CD to Azure Container Apps, OIDC federation: <https://cloud-dev-25.educ8.se/exercises/3-deployment/9-cicd-to-container-apps/>
-- **Cloud Databases** — CosmosDB provisioning (portal, CLI, Bicep): <https://cloud-dev-25.educ8.se/exercises/5-cloud-databases/>
-- **Code Collaboration** — Git, Jira, PR workflow: <https://cloud-dev-25.educ8.se/exercises/15-code-collaboration/>
-
-## Useful Commands
-
-- `dotnet run` — run the app locally (requires database available per connection string)
-- `dotnet build` — verify the project compiles
-- `dotnet test` — run tests (if test project exists)
-- `podman compose up` — run full stack locally (app + database)
-- `podman build -t <image> .` — build container image
+- Keep it simple: use only tools and patterns covered in course labs at https://cloud-dev-25.educ8.se/exercises/
+- Course exercises reference: Webapp (10-webapp-development), Docker (20-docker), Deployment (3-deployment/9-cicd-to-container-apps), Cloud DB (5-cloud-databases)
