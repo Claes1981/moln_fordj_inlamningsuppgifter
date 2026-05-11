@@ -1,8 +1,27 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Home";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="home-page">
+    <h1>CloudSoft Recruitment Portal</h1>
+    <p>Your gateway to career opportunities at CloudSoft.</p>
+
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <h2>Welcome, @User.Identity.Name!</h2>
+        @if (User.IsInRole("Administrator"))
+        {
+            <p>You have administrator access.</p>
+            <a asp-controller="JobPostings" asp-action="Index" class="btn">Manage Job Postings</a>
+        }
+        else
+        {
+            <p>You are logged in as a candidate.</p>
+        }
+    }
+    else
+    {
+        <p>Log in to browse and apply for job opportunities.</p>
+        <a asp-controller="Account" asp-action="Login" class="btn">Login</a>
+    }
 </div>

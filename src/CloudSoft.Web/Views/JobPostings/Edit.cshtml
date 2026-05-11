@@ -1,0 +1,47 @@
+@model CloudSoft.Domain.JobPosting
+
+@{
+    ViewData["Title"] = "Edit Job Posting";
+}
+
+<h1>Edit Job Posting</h1>
+
+<form asp-action="Edit" method="post">
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+    <input type="hidden" asp-for="Id" />
+
+    <div class="form-group">
+        <label asp-for="Title">Title</label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="field-validation"></span>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="Location">Location</label>
+        <input asp-for="Location" class="form-control" />
+        <span asp-validation-for="Location" class="field-validation"></span>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="Description">Description</label>
+        <textarea asp-for="Description" class="form-control" rows="5"></textarea>
+        <span asp-validation-for="Description" class="field-validation"></span>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="Status">Status</label>
+        <select asp-for="Status" asp-items="ViewBag.Status" class="form-control"></select>
+        <span asp-validation-for="Status" class="field-validation"></span>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="IsActive">Active</label>
+        <input asp-for="IsActive" type="checkbox" />
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn">Save</button>
+        <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>

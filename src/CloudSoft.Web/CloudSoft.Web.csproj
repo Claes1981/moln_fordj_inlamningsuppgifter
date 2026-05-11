@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CloudSoft.Domain\CloudSoft.Domain.csproj" />
+    <ProjectReference Include="..\CloudSoft.Data\CloudSoft.Data.csproj" />
     <ProjectReference Include="..\CloudSoft.Services\CloudSoft.Services.csproj" />
   </ItemGroup>
 

@@ -1,14 +1,23 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using CloudSoft.Services;
 using CloudSoft.Web.Models;
 
 namespace CloudSoft.Web.Controllers;
 
 public class HomeController : Controller
 {
-    public IActionResult Index()
+    private readonly IJobPostingService _jobPostingService;
+
+    public HomeController(IJobPostingService jobPostingService)
     {
-        return View();
+        _jobPostingService = jobPostingService;
+    }
+
+    public async Task<IActionResult> Index()
+    {
+        var jobPostings = await _jobPostingService.GetPublishedAsync();
+        return View(jobPostings);
     }
 
     public IActionResult Privacy()

@@ -1,0 +1,49 @@
+@model CloudSoft.Domain.JobPosting
+
+@{
+    ViewData["Title"] = "Job Posting Details";
+}
+
+<h1>Job Posting Details</h1>
+
+<div class="details">
+    <dl>
+        <dt>Title</dt>
+        <dd>@Model.Title</dd>
+
+        <dt>Location</dt>
+        <dd>@Model.Location</dd>
+
+        <dt>Description</dt>
+        <dd>@Model.Description</dd>
+
+        <dt>Status</dt>
+        <dd>@Model.Status</dd>
+
+        <dt>Active</dt>
+        <dd>@(Model.IsActive ? "Yes" : "No")</dd>
+    </dl>
+
+    <div class="details-actions">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn">Edit</a>
+        @if (Model.Status == CloudSoft.Domain.JobPostingStatus.Draft)
+        {
+            <form asp-action="Publish" asp-route-id="@Model.Id" method="post" style="display:inline;">
+                <button type="submit" class="btn">Publish</button>
+            </form>
+        }
+        @if (Model.Status == CloudSoft.Domain.JobPostingStatus.Published)
+        {
+            <form asp-action="Close" asp-route-id="@Model.Id" method="post" style="display:inline;">
+                <button type="submit" class="btn">Close</button>
+            </form>
+        }
+        @if (Model.Status == CloudSoft.Domain.JobPostingStatus.Draft)
+        {
+            <form asp-action="Delete" asp-route-id="@Model.Id" method="post" style="display:inline;">
+                <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this job posting?');">Delete</button>
+            </form>
+        }
+        <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+    </div>
+</div>
