@@ -1,0 +1,35 @@
+services:
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__CosmosDb=AccountEndpoint=https://cosmosdb:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==
+      - CosmosDb__DatabaseName=CloudSoft
+      - CosmosDb__ContainerName=JobPostings
+    depends_on:
+      cosmosdb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  cosmosdb:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    ports:
+      - "8081:8081"
+    environment:
+      - EMS_ENABLE_WORKER=true
+      - EMS_ENABLE_ENDPOINT_VALIDATION=false
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - seccomp=unconfined
+    mem_limit: 3g
+    healthcheck:
+      test: ["CMD", "curl", "-fk", "https://localhost:8081/_explorer/index.html"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s

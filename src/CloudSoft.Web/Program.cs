@@ -1,8 +1,20 @@
+using System.Net;
+using System.Net.Http;
+using System.Net.Security;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Azure.Cosmos;
 using CloudSoft.Domain;
 using CloudSoft.Data;
 using CloudSoft.Services;
+
+// Accept emulator's self-signed certificate globally in development
+if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+{
+#pragma warning disable SYSLIB0014
+    AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
+    ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
+#pragma warning restore SYSLIB0014
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +27,33 @@ var cosmosConnectionString = builder.Configuration.GetConnectionString("CosmosDb
 var databaseName = builder.Configuration.GetValue<string>("CosmosDb:DatabaseName") ?? "CloudSoft";
 var containerName = builder.Configuration.GetValue<string>("CosmosDb:ContainerName") ?? "JobPostings";
 
-builder.Services.AddSingleton(new CosmosClient(cosmosConnectionString));
+var cosmosClientOptions = new CosmosClientOptions
+{
+    ApplicationName = "CloudSoft",
+    ConnectionMode = ConnectionMode.Gateway
+};
+
+// Accept emulator's self-signed certificate in development
+if (builder.Environment.IsDevelopment())
+{
+    cosmosClientOptions.HttpClientFactory = () =>
+    {
+        var handler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        };
+        return new HttpClient(handler);
+    };
+}
+
+var cosmosClient = new CosmosClient(cosmosConnectionString, cosmosClientOptions);
+builder.Services.AddSingleton(cosmosClient);
+
+// Create database and container if they don't exist
+var databaseResponse = await cosmosClient.CreateDatabaseIfNotExistsAsync(databaseName);
+var databaseObj = databaseResponse.Database;
+await databaseObj.CreateContainerIfNotExistsAsync(containerName, "/PartitionKey");
+
 builder.Services.AddSingleton<IRepository<JobPosting>>(sp =>
 {
     var client = sp.GetRequiredService<CosmosClient>();

@@ -481,6 +481,9 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
+# Cache directory used for Docker build when internet is not accessible
+.nuget-cache/
+
 # Assignment description document
 doc/task/assignment-acd-1-swe.pdf
 doc/task/assignment-acd-1-swe.md

@@ -1,0 +1,37 @@
+## Git
+.git
+.gitignore
+
+## Build
+**/bin/
+**/obj/
+
+## IDE
+**/*.user
+**/*.suo
+**/.vs/
+**/.vscode/
+
+## Docker
+**/Dockerfile
+**/docker-compose*.yml
+.dockerignore
+
+## Env files
+*.env
+*.env.*
+!**/.env.example
+
+## Documentation
+doc/
+*.md
+!AGENTS.md
+
+## Test
+**/TestResults/
+coverage*.xml
+
+## Azure
+*.publishsettings
+*.zip
+**/.azure/
