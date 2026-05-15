@@ -23,9 +23,9 @@ Controllers: `Home`, `Account`, `JobPostings`, `Health`.
 - **CosmosDB** via `Microsoft.Azure.Cosmos` (v3.59.0) — `CosmosClient` singleton in `Program.cs`
 - **Cookie authentication** — hardcoded credentials in `AccountController` (admin/admin123, candidate/candidate123)
 - **Podman** — multi-stage Dockerfile + Podman Compose for local dev
-- **Azure Container Apps** — production hosting (NOT YET SET UP)
-- **GitHub Actions** — CI/CD pipeline (NOT YET CREATED)
-- **Bicep** — IaC for Azure resources (NOT YET CREATED)
+- **Azure Container Apps** — production hosting (DEPLOYED)
+- **GitHub Actions** — CI/CD pipeline (`.github/workflows/ci-cd.yml`)
+- **Bicep** — IaC for Azure resources (`infra/main.bicep`)
 
 ## Key Gotchas
 
@@ -38,6 +38,7 @@ Controllers: `Home`, `Account`, `JobPostings`, `Health`.
 - **`aspnet:10.0` is chiseled** — no `curl`, no `adduser`. Dockerfile has no HEALTHCHECK or non-root user.
 - **Assignment docs are gitignored** — `doc/task/assignment-acd-1-swe.pdf` and `.md` are in `.gitignore`. Don't commit them.
 - **No tests exist** — `tests/` directory is empty.
+- **PartitionKey required** — Both `JobPosting` and `JobApplication` entities must have a `PartitionKey` property matching the CosmosDB container's partition key path (`/PartitionKey`). The `CosmosRepository` uses `new PartitionKey(_partitionKeyPath)` for all operations.
 
 ## Commands
 
@@ -55,14 +56,22 @@ Controllers: `Home`, `Account`, `JobPostings`, `Health`.
   - `CosmosDb:DatabaseName` — defaults to `CloudSoft`
   - `CosmosDb:ContainerName` — defaults to `JobPostings`
 
+## Deployment
+
+- **Deployed URL**: `https://cloudsoft-x94s8o.lemonisland-d700b917.northeurope.azurecontainerapps.io`
+- **Resource Group**: `cloudsoft-rg` in `northeurope`
+- **Bicep**: `infra/main.bicep` provisions CosmosDB, Container Apps environment, and web app
+- **CI/CD**: `.github/workflows/ci-cd.yml` builds Docker image to Docker Hub and deploys via Bicep
+- **Container Image**: `claes1981/cloudsoft-recruitment:latest` on Docker Hub
+
 ## Assignment Status
 
 - Delmoment 1 (Agile/user stories): DONE — user stories in `doc/user_stories/`
 - Delmoment 2 (Containerization): DONE — Dockerfile + docker-compose.yml, tested with podman
 - Delmoment 3 (Auth + data layer): DONE — cookie auth, role control, CosmosDB repository, job postings CRUD
-- Delmoment 4 (CI/CD + Azure): NOT STARTED — need GitHub Actions workflow + Bicep IaC
-- Delmoment 5 (Verification): NOT STARTED — depends on deployment
-- Report: IN PROGRESS — `doc/report.md` and `doc/report.pdf`
+- Delmoment 4 (CI/CD + Azure): DONE — GitHub Actions workflow + Bicep IaC, deployed to Azure
+- Delmoment 5 (Verification): IN PROGRESS — app accessible, CRUD operations need testing
+- Report: IN PROGRESS — `doc/report.md` needs update for Delmoment 4-5
 
 ## Constraints
 
