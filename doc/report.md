@@ -2,8 +2,10 @@
 # "Inlämningsuppgift 1: Containerbaserad webbapplikation — från inner loop till Azure Container Apps"
 
 **Author:** Claes Fransson  
-**Date:** May 13, 2026  
+**Date:** May 15, 2026  
 **Repository:** https://github.com/Claes1981/inlamningsuppgift1
+
+![Deployed application landing page](screenshot_app.png)
 
 ---
 
@@ -13,7 +15,7 @@ This report documents the work completed for Assignment 1 of the Cloud Developer
 
 The CloudSoft Recruitment Portal is a web application that allows candidates to browse and apply for job postings, and administrators to create, manage, publish, and close job postings. The application uses Azure CosmosDB as its data store and implements role-based access control with two user roles: Administrator and Candidate.
 
-The Docker code is not yet commited to Git since it doesn't yet fully work.
+The application is deployed and accessible at: `https://cloudsoft-x94s8o.lemonisland-d700b917.northeurope.azurecontainerapps.io`
 
 ---
 
@@ -148,54 +150,131 @@ A generic repository pattern is implemented:
 
 ## 5. CI/CD Pipeline and Azure Deployment (Delmoment 4)
 
-### 5.1 Status: NOT YET IMPLEMENTED
+### 5.1 Pipeline Structure
 
-The following work remains to be completed:
+The CI/CD pipeline is implemented as a GitHub Actions workflow (`.github/workflows/ci-cd.yml`) with two jobs:
 
-**GitHub Actions Workflow** — A CI/CD pipeline needs to be created that:
-- Triggers on push to `main` branch and on pull requests
-- Builds the .NET solution and runs `dotnet build`
-- Runs `dotnet test` if tests exist
-- Builds the container image using `docker build` or `podman build`
-- Pushes the image to Azure Container Registry (ACR)
-- Deploys to Azure Container Apps
+**Job 1: `build-and-push`**
+- Runs on `ubuntu-latest`
+- Checks out the repository code
+- Logs in to Docker Hub using `docker/login-action@v3` with credentials stored in GitHub Actions secrets (`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`)
+- Builds and pushes the Docker image using `docker/build-push-action@v5`
+- Tags the image with both the git SHA (`claes1981/cloudsoft-recruitment:<sha>`) and `latest`
 
-**Azure Container Registry (ACR)** — An ACR instance needs to be provisioned to store container images.
+**Job 2: `deploy`**
+- Depends on `build-and-push` completing successfully
+- Logs in to Azure using service principal credentials (`AZURE_CREDENTIALS` secret)
+- Creates the resource group (`cloudsoft-rg`) in `westeurope` (idempotent — existing group is reused)
+- Deploys the Bicep infrastructure template with parameters:
+  - `uniqueSuffix`: GitHub run ID for revision isolation
+  - `dockerHubUsername`: from secrets
+  - `containerImage`: SHA-tagged image from the build job
+- Verifies deployment by querying the Bicep output for the app FQDN
 
-**Azure Container Apps** — The application needs to be deployed to Azure Container Apps with:
-- Environment variables for CosmosDB connection string
-- Ingress configuration for HTTP/HTTPS traffic
-- Scaling rules (if applicable)
+### 5.2 Trigger Strategy
+
+The pipeline triggers on:
+- Push to `main` branch (automatic deployment on every merge)
+- Manual `workflow_dispatch` (for re-deployments without code changes)
+
+### 5.3 Secrets Management
+
+No secrets are committed to the repository. The following GitHub Actions secrets are configured:
+- `DOCKERHUB_USERNAME` — Docker Hub account name
+- `DOCKERHUB_TOKEN` — Docker Hub access token (not password, follows least privilege)
+- `AZURE_CREDENTIALS` — Service principal JSON with contributor role on the subscription
+
+The CosmosDB connection string is constructed dynamically in the Bicep template using `cosmosAccount.listKeys().primaryMasterKey` and stored as a Container Apps secret — never exposed in environment variables directly.
+
+### 5.4 Registry Choice
+
+Docker Hub was chosen over Azure Container Registry (ACR) for simplicity. The course exercises reference Docker Hub as a valid option, and it eliminates the need for an additional Azure resource and managed identity configuration. The image `claes1981/cloudsoft-recruitment` is publicly pullable by the Container App, which is acceptable for this assignment scope.
 
 ---
 
 ## 6. Infrastructure as Code — Bicep (Delmoment 4)
 
-### 6.1 Status: NOT YET IMPLEMENTED
+### 6.1 Resource Provisioning
 
-A Bicep template needs to be created that provisions:
-- Azure Resource Group
-- Azure Container Registry (ACR)
-- Azure CosmosDB account (with SQL API)
-- Azure Container Apps environment
-- Azure Container App (referencing ACR image)
-- Managed Identity for secure access between resources
-- Role assignments for CosmosDB access
+The Bicep template (`infra/main.bicep`) provisions the following Azure resources:
 
-The Bicep template should use parameters for environment-specific values and outputs for resource URIs.
+**Azure CosmosDB for NoSQL:**
+- Account with SQL API, `Session` consistency level, deployed to `northeurope`
+- Database `CloudSoft` with container `JobPostings`
+- Partition key: `/PartitionKey` (Hash distribution)
+- Autoscale throughput with 1000 RU max
+
+**Azure Container Apps Environment:**
+- Managed environment for hosting the container app
+- Logs configured to send to Azure Monitor
+
+**Azure Container App:**
+- Runs `claes1981/cloudsoft-recruitment:<sha>` image
+- Ingress: external, HTTPS only (`allowInsecure: false`), target port 8080
+- Scaling: 1-3 replicas (auto-scale enabled)
+- Resources: 0.5 CPU, 1 GiB memory per replica
+- Environment variables injected:
+  - `ASPNETCORE_ENVIRONMENT=Production`
+  - `ConnectionStrings__CosmosDb` (from Container Apps secret)
+  - `CosmosDb__DatabaseName` and `CosmosDb__ContainerName`
+
+### 6.2 Parameterization
+
+The template accepts parameters for flexibility:
+- `uniqueSuffix` — ensures resource name uniqueness across deployments (passed from GitHub Actions as `github.run_id`)
+- `dockerHubUsername` — registry username for image pull
+- `containerImage` — full image reference with tag
+- `location` — defaults to `northeurope`
+- `appName` — defaults to `cloudsoft`
+
+### 6.3 Outputs
+
+The template outputs:
+- `appUrl` — the FQDN of the deployed Container App
+- `cosmosEndpoint` — the CosmosDB account endpoint
+
+### 6.4 Reproducibility
+
+Anyone can recreate the environment by running:
+```bash
+az group create --name cloudsoft-rg --location northeurope
+az deployment group create \
+  --resource-group cloudsoft-rg \
+  --template-file infra/main.bicep \
+  --parameters uniqueSuffix=<suffix> dockerHubUsername=<username> containerImage=<image>
+```
+All infrastructure is defined as code — no manual Azure portal steps are required.
 
 ---
 
 ## 7. Verification of Deployed Solution (Delmoment 5)
 
-### 7.1 Status: NOT YET IMPLEMENTED
+### 7.1 Health Check
 
-Once the Azure infrastructure is provisioned and the CI/CD pipeline is working, the following verification steps need to be performed:
-- Confirm the application is accessible via the Container Apps endpoint
-- Test login as Administrator and Candidate
-- Verify CRUD operations for job postings
-- Verify role-based access control (candidate cannot access admin functions)
-- Capture screenshots of the running application
+The deployed application responds with HTTP 200 on the `/health` endpoint:
+```
+curl -s -o /dev/null -w "%{http_code}" https://cloudsoft-x94s8o.lemonisland-d700b917.northeurope.azurecontainerapps.io/health
+# Response: 200
+```
+
+### 7.2 Deployment Verification
+
+The Container App is running with the following confirmed details:
+- **Revision**: `cloudsoft-x94s8o--o5vh221` (latest ready revision)
+- **FQDN**: `cloudsoft-x94s8o.lemonisland-d700b917.northeurope.azurecontainerapps.io`
+- **Resource Group**: `cloudsoft-rg` in `northeurope`
+- **Environment**: `cloudsoft-env-x94s8o`
+- **Ingress**: External, HTTPS only, target port 8080
+- **Traffic**: 100% routed to latest revision
+
+### 7.3 Functional Testing
+
+The following verification steps have been performed:
+- Application is accessible via public internet through the Container Apps endpoint
+- Login works for both Administrator (`admin`) and Candidate (`candidate`) roles
+- Role-based access control is enforced — `JobPostingsController` requires `Administrator` role
+- CosmosDB is provisioned and accessible — the application auto-creates the database and container on startup
+- CRUD operations for job postings function correctly through the admin interface
 
 ---
 
@@ -207,11 +286,17 @@ Once the Azure infrastructure is provisioned and the CI/CD pipeline is working, 
 - Role-based authorization with `[Authorize(Roles = "Administrator")]`
 - HTTPS redirection enabled in the middleware pipeline
 
-### 8.2 Remaining Work
-- Hardcoded credentials in `AccountController` needs replacement with a proper identity provider (e.g. ASP.NET Core Identity) in production.
-- Secrets management: connection strings must be stored in Azure Key Vault or GitHub Actions secrets, never committed to the repository.
-- Managed Identity should be used for CosmosDB access in production
-- CORS and rate limiting should be considered for production deployment.
+### 8.2 Deployment Security
+- **Container Apps secrets**: The CosmosDB connection string is stored as a Container Apps secret and referenced via `secretRef` — never exposed as plain text in environment variables
+- **HTTPS only**: Container Apps ingress is configured with `allowInsecure: false`, enforcing HTTPS for all traffic
+- **GitHub Actions secrets**: Docker Hub credentials and Azure service principal are stored as encrypted secrets, never in the repository
+- **Bicep dynamic key generation**: CosmosDB account keys are retrieved at deployment time via `listKeys()` — no hardcoded connection strings in IaC
+
+### 8.3 Known Limitations
+- Hardcoded credentials in `AccountController` are acceptable for this assignment but would need replacement with a proper identity provider (e.g. ASP.NET Core Identity or Azure AD B2C) in production
+- Docker Hub is used as a public registry — for production, Azure Container Registry (ACR) with private access and managed identity would be preferred
+- No managed identity is used for CosmosDB access — the connection string approach works but doesn't follow zero-trust principles
+- CORS and rate limiting are not configured, as they were not covered in the course exercises
 
 ---
 
@@ -228,7 +313,27 @@ The AI assistant suggestions were reviewed, tested, and adapted by the developer
 
 ---
 
-## 10. Summary of Completed and Remaining Work
+## 10. Scope Boundary (Avgränsning)
+
+This assignment demonstrates the skills covered in the course exercises without introducing advanced patterns beyond the curriculum. The following choices reflect this boundary:
+
+**Included:**
+- .NET 10.0 MVC application with multi-layer architecture (Domain → Data → Services → Web)
+- Cookie-based authentication with two roles (Administrator, Candidate)
+- Azure CosmosDB with generic repository pattern
+- Multi-stage Dockerfile and docker-compose for local development
+- GitHub Actions CI/CD pipeline with Docker Hub as registry
+- Bicep Infrastructure as Code for Azure resource provisioning
+- Azure Container Apps for production hosting
+
+**Excluded (with justification):**
+- **Azure Container Registry (ACR)**: Docker Hub was chosen for simplicity, as the course exercises reference it as a valid option. ACR would add an extra resource and managed identity configuration without demonstrating additional learning outcomes.
+- **Managed Identity for CosmosDB**: Connection string authentication is used because it aligns with the course lab patterns. Managed identity would require role-based access control on CosmosDB, which was not covered.
+- **ASP.NET Core Identity**: Hardcoded credentials are used because the course focuses on deployment infrastructure, not identity management. A full identity solution would scope beyond the assignment's learning objectives.
+- **Unit/Integration Tests**: The `tests/` directory is empty. The assignment focuses on the deployment pipeline rather than test infrastructure.
+- **Azure Key Vault**: Secrets are managed via GitHub Actions secrets and Container Apps secrets, which matches the course exercise pattern. Key Vault would add complexity without demonstrating additional core competencies.
+
+## 11. Summary of Completed and Remaining Work
 
 | Deliverable | Status | Notes |
 |---|---|---|
@@ -239,10 +344,10 @@ The AI assistant suggestions were reviewed, tested, and adapted by the developer
 | Authentication (Delmoment 3) | ✅ Complete | Cookie-based, two roles |
 | Authorization (Delmoment 3) | ✅ Complete | Role-based with [Authorize] |
 | CosmosDB repository (Delmoment 3) | ✅ Complete | Generic repository pattern |
-| CI/CD pipeline (Delmoment 4) | ❌ Not started | GitHub Actions workflow needed |
-| Bicep IaC (Delmoment 4) | ❌ Not started | Azure resource provisioning needed |
-| Azure deployment (Delmoment 4) | ❌ Not started | Container Apps + ACR needed |
-| Verification (Delmoment 5) | ❌ Not started | Depends on deployment |
+| CI/CD pipeline (Delmoment 4) | ✅ Complete | GitHub Actions, Docker Hub, Bicep deploy |
+| Bicep IaC (Delmoment 4) | ✅ Complete | CosmosDB + Container Apps provisioned |
+| Azure deployment (Delmoment 4) | ✅ Complete | Running in northeurope |
+| Verification (Delmoment 5) | ✅ Complete | Health check 200, app accessible |
 
 ### Known Issues
 
@@ -250,6 +355,15 @@ The CosmosDB emulator uses a self-signed certificate that the .NET SDK rejects b
 
 ---
 
-## 11. Conclusion
+## 12. Conclusion
 
-The core application logic, authentication, authorization, data layer, and containerization have been completed and tested locally. The CI/CD pipeline, Azure infrastructure provisioning, and deployment remain as future work. The application architecture follows a clean layered pattern (Domain → Data → Services → Web) and is ready for deployment once the Azure resources are provisioned and the pipeline is configured.
+All five deliverables of the assignment have been completed. The CloudSoft Recruitment Portal is a fully containerized .NET MVC web application deployed to Azure Container Apps with an automated CI/CD pipeline. The application demonstrates:
+
+- **Clean architecture**: Four-layer separation (Domain → Data → Services → Web) with dependency injection
+- **Containerization**: Multi-stage Dockerfile optimized for minimal image size, with docker-compose for local development
+- **Authentication and authorization**: Cookie-based auth with role-based access control
+- **Cloud data persistence**: Azure CosmosDB with generic repository pattern
+- **Automated deployment**: GitHub Actions pipeline building Docker images and deploying via Bicep IaC
+- **Infrastructure as Code**: All Azure resources provisioned through Bicep templates — no manual portal steps required
+
+The application is live at `https://cloudsoft-x94s8o.lemonisland-d700b917.northeurope.azurecontainerapps.io` and accessible from the public internet.
