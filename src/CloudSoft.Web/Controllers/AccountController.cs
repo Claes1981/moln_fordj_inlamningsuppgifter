@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using CloudSoft.Data;
+using CloudSoft.Web.Models;
 
 namespace CloudSoft.Web.Controllers;
 
@@ -16,28 +17,23 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult Login(string? returnUrl = null)
     {
-        ViewData["ReturnUrl"] = returnUrl;
-        return View();
+        return View(new LoginViewModel { ReturnUrl = returnUrl });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(string username, string password, bool rememberMe = false, string? returnUrl = null)
+    public async Task<IActionResult> Login(LoginViewModel model)
     {
-        ViewData["ReturnUrl"] = returnUrl;
+        if (!ModelState.IsValid)
+            return View(model);
 
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-        {
-            ModelState.AddModelError("", "Username and password are required.");
-            return View();
-        }
-
-        var result = await _signInManager.PasswordSignInAsync(username, password, rememberMe, lockoutOnFailure: false);
+        var result = await _signInManager.PasswordSignInAsync(
+            model.Username, model.Password, model.RememberMe, lockoutOnFailure: false);
 
         if (result.Succeeded)
         {
-            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-                return Redirect(returnUrl);
+            if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
+                return Redirect(model.ReturnUrl);
             return RedirectToAction(nameof(HomeController.Index), "Home");
         }
 
@@ -50,7 +46,7 @@ public class AccountController : Controller
             ModelState.AddModelError("", "Invalid username or password.");
         }
 
-        return View();
+        return View(model);
     }
 
     [HttpPost]

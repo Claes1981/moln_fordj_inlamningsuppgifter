@@ -1,19 +1,20 @@
+using CloudSoft.Domain;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace CloudSoft.Data;
 
 public static class IdentitySeeder
 {
-    public static async Task SeedAsync(IServiceProvider serviceProvider, IConfiguration configuration, ILogger logger)
+    public static async Task SeedAsync(
+        UserManager<ApplicationUser> userManager,
+        RoleManager<IdentityRole> roleManager,
+        IConfiguration configuration,
+        ILogger logger)
     {
-        var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-
         // Ensure roles exist
-        foreach (var role in new[] { "Administrator", "Candidate" })
+        foreach (var role in Constants.Roles)
         {
             if (!await roleManager.RoleExistsAsync(role))
             {
@@ -41,12 +42,13 @@ public static class IdentitySeeder
             var result = await userManager.CreateAsync(admin, adminPassword);
             if (result.Succeeded)
             {
-                await userManager.AddToRoleAsync(admin, "Administrator");
+                await userManager.AddToRoleAsync(admin, Constants.AdministratorRole);
                 logger.LogInformation("Seeded admin user: {Username}", adminUsername);
             }
             else
             {
-                logger.LogError("Failed to seed admin user: {Errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
+                logger.LogError("Failed to seed admin user: {Errors}",
+                    string.Join(", ", result.Errors.Select(e => e.Description)));
             }
         }
     }

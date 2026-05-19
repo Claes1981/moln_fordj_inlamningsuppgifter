@@ -1,22 +1,32 @@
+@model CloudSoft.Web.Models.LoginViewModel
 @{
     ViewData["Title"] = "Login";
 }
 
 <h1>Login</h1>
 
-<form asp-action="Login" method="post" class="login-form">
+<form asp-action="Login" asp-antiforgery="true" method="post" class="login-form">
     <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
 
-    <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
+    <input type="hidden" asp-for="ReturnUrl" />
 
     <div class="form-group">
-        <label for="username">Username</label>
-        <input type="text" id="username" name="username" class="form-control" autofocus />
+        <label asp-for="Username"></label>
+        <input asp-for="Username" class="form-control" autofocus />
+        <span asp-validation-for="Username" class="text-danger"></span>
     </div>
 
     <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" class="form-control" />
+        <label asp-for="Password"></label>
+        <input asp-for="Password" class="form-control" />
+        <span asp-validation-for="Password" class="text-danger"></span>
+    </div>
+
+    <div class="form-group-check">
+        <label>
+            <input asp-for="RememberMe" />
+            @Html.DisplayNameFor(m => m.RememberMe)
+        </label>
     </div>
 
     <div class="form-actions">

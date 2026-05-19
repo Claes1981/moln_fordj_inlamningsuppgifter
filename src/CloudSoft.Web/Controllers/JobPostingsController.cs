@@ -6,7 +6,7 @@ using CloudSoft.Services;
 
 namespace CloudSoft.Web.Controllers;
 
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Constants.AdministratorRole)]
 public class JobPostingsController : Controller
 {
     private readonly IJobPostingService _jobPostingService;
@@ -14,6 +14,11 @@ public class JobPostingsController : Controller
     public JobPostingsController(IJobPostingService jobPostingService)
     {
         _jobPostingService = jobPostingService;
+    }
+
+    private static SelectList StatusSelectList(JobPostingStatus selected = JobPostingStatus.Draft)
+    {
+        return new SelectList(Enum.GetValues<JobPostingStatus>(), "ToString()", "ToString()", selected);
     }
 
     public async Task<IActionResult> Index()
@@ -24,7 +29,7 @@ public class JobPostingsController : Controller
 
     public IActionResult Create()
     {
-        ViewData["Status"] = new SelectList(Enum.GetValues<JobPostingStatus>(), "ToString()", "ToString()", JobPostingStatus.Draft);
+        ViewData["Status"] = StatusSelectList();
         return View();
     }
 
@@ -34,15 +39,7 @@ public class JobPostingsController : Controller
     {
         if (!jobPosting.IsValid(out _))
         {
-            ViewData["Status"] = new SelectList(Enum.GetValues<JobPostingStatus>(), "ToString()", "ToString()", jobPosting.Status);
-            foreach (var key in ModelState.Keys.ToList())
-            {
-                var val = ModelState[key];
-                if (val != null && val.Errors.Count > 0)
-                {
-                    val.Errors.Clear();
-                }
-            }
+            ViewData["Status"] = StatusSelectList(jobPosting.Status);
             ModelState.AddModelError("", "Invalid job posting data.");
             return View(jobPosting);
         }
@@ -54,7 +51,7 @@ public class JobPostingsController : Controller
         }
         catch (InvalidOperationException ex)
         {
-            ViewData["Status"] = new SelectList(Enum.GetValues<JobPostingStatus>(), "ToString()", "ToString()", jobPosting.Status);
+            ViewData["Status"] = StatusSelectList(jobPosting.Status);
             ModelState.AddModelError("", ex.Message);
             return View(jobPosting);
         }
@@ -89,7 +86,7 @@ public class JobPostingsController : Controller
             return NotFound();
         }
 
-        ViewData["Status"] = new SelectList(Enum.GetValues<JobPostingStatus>(), "ToString()", "ToString()", jobPosting.Status);
+        ViewData["Status"] = StatusSelectList(jobPosting.Status);
         return View(jobPosting);
     }
 
@@ -104,7 +101,7 @@ public class JobPostingsController : Controller
 
         if (!jobPosting.IsValid(out _))
         {
-            ViewData["Status"] = new SelectList(Enum.GetValues<JobPostingStatus>(), "ToString()", "ToString()", jobPosting.Status);
+            ViewData["Status"] = StatusSelectList(jobPosting.Status);
             ModelState.AddModelError("", "Invalid job posting data.");
             return View(jobPosting);
         }
@@ -116,7 +113,7 @@ public class JobPostingsController : Controller
         }
         catch (InvalidOperationException ex)
         {
-            ViewData["Status"] = new SelectList(Enum.GetValues<JobPostingStatus>(), "ToString()", "ToString()", jobPosting.Status);
+            ViewData["Status"] = StatusSelectList(jobPosting.Status);
             ModelState.AddModelError("", ex.Message);
             return View(jobPosting);
         }

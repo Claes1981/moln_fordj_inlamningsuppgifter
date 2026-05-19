@@ -8,10 +8,10 @@ public class CosmosRepository<T> : IRepository<T> where T : class
     private readonly Container _container;
     private readonly string _partitionKeyPath;
 
-    public CosmosRepository(Container container, string partitionKeyPath = "/PartitionKey")
+    public CosmosRepository(Container container, string? partitionKeyPath = null)
     {
         _container = container;
-        _partitionKeyPath = partitionKeyPath;
+        _partitionKeyPath = partitionKeyPath ?? Constants.PartitionKey;
     }
 
     public async Task<T?> GetByIdAsync(string id)
