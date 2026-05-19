@@ -481,8 +481,17 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
+# Pi Coding Agent files
+.pi/*
+!.pi/agents
+.pi/agents/*
+!.pi/agents/supervisor.md
+
 # Cache directory used for Docker build when internet is not accessible
 .nuget-cache/
+
+# Contains secrets
+src/CloudSoft.Web/appsettings.Development.json
 
 # Assignment description document
 doc/task/assignment-acd-1-swe.pdf
