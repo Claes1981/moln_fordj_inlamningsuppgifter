@@ -1,12 +1,18 @@
-using System.Security.Claims;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
+using CloudSoft.Data;
 
 namespace CloudSoft.Web.Controllers;
 
 public class AccountController : Controller
 {
+    private readonly SignInManager<ApplicationUser> _signInManager;
+
+    public AccountController(SignInManager<ApplicationUser> signInManager)
+    {
+        _signInManager = signInManager;
+    }
+
     [HttpGet]
     public IActionResult Login(string? returnUrl = null)
     {
@@ -16,7 +22,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(string username, string password, string? returnUrl = null)
+    public async Task<IActionResult> Login(string username, string password, bool rememberMe = false, string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;
 
@@ -26,41 +32,32 @@ public class AccountController : Controller
             return View();
         }
 
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.Name, username)
-        };
+        var result = await _signInManager.PasswordSignInAsync(username, password, rememberMe, lockoutOnFailure: false);
 
-        if (username == "admin" && password == "admin123")
+        if (result.Succeeded)
         {
-            claims.Add(new(ClaimTypes.Role, "Administrator"));
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return Redirect(returnUrl);
+            return RedirectToAction(nameof(HomeController.Index), "Home");
         }
-        else if (username == "candidate" && password == "candidate123")
+
+        if (result.IsLockedOut)
         {
-            claims.Add(new(ClaimTypes.Role, "Candidate"));
+            ModelState.AddModelError("", "Account locked out.");
         }
         else
         {
             ModelState.AddModelError("", "Invalid username or password.");
-            return View();
         }
 
-        var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
-
-        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-        {
-            return Redirect(returnUrl);
-        }
-
-        return RedirectToAction(nameof(HomeController.Index), "Home");
+        return View();
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
-        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        await _signInManager.SignOutAsync();
         return RedirectToAction(nameof(HomeController.Index), "Home");
     }
 
