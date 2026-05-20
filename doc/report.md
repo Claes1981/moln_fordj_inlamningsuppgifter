@@ -1,3 +1,9 @@
+---
+mainfont: "DejaVu Serif"
+monofont: "DejaVu Sans Mono"
+header-includes:
+  - \usepackage{pifont}
+---
 # Report
 # "Inlämningsuppgift 1: Containerbaserad webbapplikation — från inner loop till Azure Container Apps"
 
@@ -351,7 +357,7 @@ The `/health` endpoint returns HTTP 200 with a JSON response containing a UTC ti
 
 ## 9. AI Assistant Usage
 
-Throughout this assignment, AI coding assistants (Pi Coding Agent / Opencode with Llama.cpp and Qwen3.6-27B) have been used extensively:
+Throughout this assignment, AI coding assistants (Pi Coding Agent / Opencode with Llama.cpp and Qwen3.6-27B model) have been used extensively:
 
 - **Project scaffolding**: Generated the four-layer architecture (Domain → Data → Services → Web) with proper project references
 - **Dockerfile and docker-compose**: Created multi-stage Dockerfile and compose configuration for local development
@@ -361,7 +367,7 @@ Throughout this assignment, AI coding assistants (Pi Coding Agent / Opencode wit
 - **Debugging**: Resolved issues with chiseled image limitations, CosmosDB emulator certificate handling, and Azure service principal authentication
 - **Documentation**: Assisted with writing this report
 
-Much of the AI-generated code was reviewed, tested, and adapted by the developer. The AI suggested hardcoding credentials for simplicity, which was rejected in favor of proper secret management (user secrets, GitHub Actions secrets, Container Apps secrets).
+Much of the AI-generated code was reviewed, tested, and adapted by me (Claes). The AI suggested hardcoding credentials for simplicity, which I rejected in favor of proper secret management (user secrets, GitHub Actions secrets, Container Apps secrets).
 
 ---
 
