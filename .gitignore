@@ -493,6 +493,8 @@ $RECYCLE.BIN/
 # Contains secrets
 src/CloudSoft.Web/appsettings.Development.json
 
-# Assignment description document
-doc/task/assignment-acd-1-swe.pdf
-doc/task/assignment-acd-1-swe.md
+# Assignment description documents
+doc/*/assignment-acd-1-swe.pdf
+doc/*/assignment-acd-1-swe.md
+doc/*/assignment-acd-2-swe.pdf
+doc/*/assignment-acd-2-swe.md
