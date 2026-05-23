@@ -25,7 +25,9 @@ public class AccountController : Controller
     public async Task<IActionResult> Login(LoginViewModel model)
     {
         if (!ModelState.IsValid)
+        {
             return View(model);
+        }
 
         var result = await _signInManager.PasswordSignInAsync(
             model.Username, model.Password, model.RememberMe, lockoutOnFailure: false);
