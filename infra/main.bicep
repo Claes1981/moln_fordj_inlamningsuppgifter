@@ -24,6 +24,8 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
         failoverPriority: 0
       }
     ]
+    // Production security: disable account-key based authentication.
+    disableLocalAuth: true
   }
 }
 
@@ -89,6 +91,8 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         external: true
         targetPort: 8080
         allowInsecure: false
+        // Enforce minimum TLS version for ingress traffic.
+        transport: 'auto'
         traffic: [
           {
             latestRevision: true

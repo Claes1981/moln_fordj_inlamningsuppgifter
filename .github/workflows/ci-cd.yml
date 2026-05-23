@@ -12,6 +12,8 @@ env:
   DOCKERHUB_USERNAME: claes1981
   IMAGE_NAME: cloudsoft-recruitment
   UNIQUE_SUFFIX: ${{ github.run_id }}
+  RESOURCE_GROUP: cloudsoft-rg
+  LOCATION: northeurope
 
 jobs:
   build-and-push:
@@ -54,8 +56,8 @@ jobs:
         with:
           inlineScript: |
             az group create \
-              --name cloudsoft-rg \
-              --location westeurope \
+              --name ${{ env.RESOURCE_GROUP }} \
+              --location ${{ env.LOCATION }} \
               --only-show-errors 2>/dev/null || true
 
       - name: Deploy Bicep infrastructure
@@ -63,7 +65,7 @@ jobs:
         with:
           inlineScript: |
             az deployment group create \
-               --resource-group cloudsoft-rg \
+               --resource-group ${{ env.RESOURCE_GROUP }} \
                --template-file infra/main.bicep \
                --parameters \
                  uniqueSuffix=${{ env.UNIQUE_SUFFIX }} \
@@ -75,7 +77,7 @@ jobs:
         with:
           inlineScript: |
             APP_FQDN=$(az deployment group show \
-              --resource-group cloudsoft-rg \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
               --name main \
               --query properties.outputs.appUrl.value \
               --output tsv)
