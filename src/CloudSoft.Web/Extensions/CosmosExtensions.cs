@@ -64,6 +64,6 @@ public static class CosmosExtensions
         var containerName = configuration.GetValue<string>("CosmosDb:ContainerName") ?? Constants.DefaultContainerName;
 
         var database = await client.CreateDatabaseIfNotExistsAsync(databaseName);
-        await database.Database.CreateContainerIfNotExistsAsync(containerName, Constants.PartitionKey);
+        await database.Database.CreateContainerIfNotExistsAsync(containerName, Constants.PartitionKeyPath);
     }
 }
