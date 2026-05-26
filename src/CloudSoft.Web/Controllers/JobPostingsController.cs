@@ -10,10 +10,14 @@ namespace CloudSoft.Web.Controllers;
 public class JobPostingsController : Controller
 {
     private readonly IJobPostingService _jobPostingService;
+    private readonly ILogger<JobPostingsController> _logger;
 
-    public JobPostingsController(IJobPostingService jobPostingService)
+    public JobPostingsController(
+        IJobPostingService jobPostingService,
+        ILogger<JobPostingsController> logger)
     {
         _jobPostingService = jobPostingService;
+        _logger = logger;
     }
 
     private static SelectList StatusSelectList(JobPostingStatus selected = JobPostingStatus.Draft)
@@ -47,10 +51,12 @@ public class JobPostingsController : Controller
         try
         {
             await _jobPostingService.CreateAsync(jobPosting, HttpContext.RequestAborted);
+            _logger.LogInformation("Job posting '{Title}' created with Id '{Id}'.", jobPosting.Title, jobPosting.Id);
             return RedirectToAction(nameof(Index));
         }
         catch (InvalidOperationException ex)
         {
+            _logger.LogWarning(ex, "Failed to create job posting '{Title}': {Message}", jobPosting.Title, ex.Message);
             ViewData["Status"] = StatusSelectList(jobPosting.Status);
             ModelState.AddModelError("", ex.Message);
             return View(jobPosting);
@@ -109,10 +115,12 @@ public class JobPostingsController : Controller
         try
         {
             await _jobPostingService.UpdateAsync(jobPosting, HttpContext.RequestAborted);
+            _logger.LogInformation("Job posting '{Title}' updated with Id '{Id}'.", jobPosting.Title, jobPosting.Id);
             return RedirectToAction(nameof(Index));
         }
         catch (InvalidOperationException ex)
         {
+            _logger.LogWarning(ex, "Failed to update job posting '{Id}': {Message}", id, ex.Message);
             ViewData["Status"] = StatusSelectList(jobPosting.Status);
             ModelState.AddModelError("", ex.Message);
             return View(jobPosting);
@@ -125,11 +133,14 @@ public class JobPostingsController : Controller
     {
         try
         {
+            var posting = await _jobPostingService.GetByIdAsync(id, HttpContext.RequestAborted);
             await _jobPostingService.DeleteAsync(id, HttpContext.RequestAborted);
+            _logger.LogInformation("Job posting '{Title}' deleted with Id '{Id}'.", posting?.Title ?? "Unknown", id);
             return RedirectToAction(nameof(Index));
         }
         catch (InvalidOperationException ex)
         {
+            _logger.LogWarning(ex, "Failed to delete job posting '{Id}': {Message}", id, ex.Message);
             ModelState.AddModelError("", ex.Message);
             return RedirectToAction(nameof(Index));
         }
@@ -142,10 +153,12 @@ public class JobPostingsController : Controller
         try
         {
             await _jobPostingService.PublishAsync(id, HttpContext.RequestAborted);
+            _logger.LogInformation("Job posting published with Id '{Id}'.", id);
             return RedirectToAction(nameof(Index));
         }
         catch (InvalidOperationException ex)
         {
+            _logger.LogWarning(ex, "Failed to publish job posting '{Id}': {Message}", id, ex.Message);
             ModelState.AddModelError("", ex.Message);
             return RedirectToAction(nameof(Details), new { id });
         }
@@ -158,10 +171,12 @@ public class JobPostingsController : Controller
         try
         {
             await _jobPostingService.CloseAsync(id, HttpContext.RequestAborted);
+            _logger.LogInformation("Job posting closed with Id '{Id}'.", id);
             return RedirectToAction(nameof(Index));
         }
         catch (InvalidOperationException ex)
         {
+            _logger.LogWarning(ex, "Failed to close job posting '{Id}': {Message}", id, ex.Message);
             ModelState.AddModelError("", ex.Message);
             return RedirectToAction(nameof(Details), new { id });
         }
