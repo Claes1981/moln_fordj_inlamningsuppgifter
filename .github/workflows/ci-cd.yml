@@ -82,3 +82,13 @@ jobs:
               --query properties.outputs.appUrl.value \
               --output tsv)
             echo "App deployed at: https://$APP_FQDN"
+
+      - name: Smoke test
+        run: |
+          APP_FQDN=$(az deployment group show \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name main \
+            --query properties.outputs.appUrl.value \
+            --output tsv)
+          # Use /health/live (liveness probe) — no dependency checks, just process alive.
+          curl -f "https://$APP_FQDN/health/live" || exit 1
