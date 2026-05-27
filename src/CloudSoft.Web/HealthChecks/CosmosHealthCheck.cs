@@ -26,10 +26,10 @@ public class CosmosHealthCheck : IHealthCheck
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
+        // 5-second timeout for health check
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         try
         {
-            // 5-second timeout for health check
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             using var linkedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cts.Token);
 
             var container = _cosmosClient.GetContainer(_databaseName, _containerName);
@@ -37,9 +37,9 @@ public class CosmosHealthCheck : IHealthCheck
 
             return HealthCheckResult.Healthy("CosmosDB is available.");
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
         {
-            return await CheckHealthAsync(context, cancellationToken);
+            return HealthCheckResult.Degraded("CosmosDB health check timed out.");
         }
         catch (Exception ex)
         {

@@ -20,9 +20,9 @@ public class BlobHealthCheck : IHealthCheck
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             using var linkedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cts.Token);
 
             var available = await _blobService.IsAvailableAsync(linkedToken.Token);
@@ -30,9 +30,9 @@ public class BlobHealthCheck : IHealthCheck
                 ? HealthCheckResult.Healthy("Blob Storage is available.")
                 : HealthCheckResult.Degraded("Blob Storage returned false from ExistsAsync.");
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
         {
-            return await CheckHealthAsync(context, cancellationToken);
+            return HealthCheckResult.Degraded("Blob Storage health check timed out.");
         }
         catch (Exception ex)
         {

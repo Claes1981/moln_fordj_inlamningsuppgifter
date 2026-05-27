@@ -36,9 +36,12 @@ else
 builder.Services.AddScoped<IJobPostingService, JobPostingService>();
 
 // Health checks — deep probes for CosmosDB and Blob Storage
+// Liveness: no checks (process alive = healthy)
+// Readiness: checks tagged "ready" (CosmosDB + Blob Storage)
+// Diagnostic: all checks with JSON breakdown
 builder.Services.AddHealthChecks()
-    .AddCheck<CosmosHealthCheck>("cosmosdb", tags: new[] { "cosmos" })
-    .AddCheck<BlobHealthCheck>("blobstorage", tags: new[] { "blob" });
+    .AddCheck<CosmosHealthCheck>("cosmosdb", tags: new[] { "ready" })
+    .AddCheck<BlobHealthCheck>("blobstorage", tags: new[] { "ready" });
 
 // Swagger / OpenAPI
 builder.Services.AddSwaggerGen(c =>
@@ -123,4 +126,42 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
+// Health check endpoints — three endpoints, three audiences
+// /health/live: liveness probe — no checks, process alive = healthy
+// /health/ready: readiness probe — checks tagged "ready" (CosmosDB + Blob)
+// /health: diagnostic — all checks with JSON breakdown for humans
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false // No checks. Process is alive — that's all this asserts.
+});
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = c => c.Tags.Contains("ready")
+});
+
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = WriteJsonResponse
+});
+
 app.Run();
+
+/// <summary>
+/// Writes a JSON health check response for the /health diagnostic endpoint.
+/// </summary>
+static Task WriteJsonResponse(HttpContext ctx, Microsoft.Extensions.Diagnostics.HealthChecks.HealthReport report)
+{
+    ctx.Response.ContentType = "application/json";
+    var payload = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        status = report.Status.ToString(),
+        checks = report.Entries.Select(e => new
+        {
+            name = e.Key,
+            status = e.Value.Status.ToString(),
+            duration_ms = (int)e.Value.Duration.TotalMilliseconds
+        })
+    });
+    return ctx.Response.WriteAsync(payload);
+}
