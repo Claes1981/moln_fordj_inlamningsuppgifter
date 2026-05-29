@@ -1,6 +1,6 @@
 namespace CloudSoft.Domain;
 
-public class JobPosting
+public class JobPosting : ICosmosEntity
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string PartitionKey { get; set; } = "JobPosting";

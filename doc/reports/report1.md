@@ -11,7 +11,7 @@ header-includes:
 **Date:** May 20, 2026  
 **Repository:** https://github.com/Claes1981/inlamningsuppgift1
 
-![Deployed application landing page](screenshot_app.png)
+![Deployed application landing page](screenshot_app1.png)
 
 ---
 

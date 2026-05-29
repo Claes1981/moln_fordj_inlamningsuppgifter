@@ -1,3 +1,4 @@
+using Azure.Identity;
 using Microsoft.Azure.Cosmos;
 using CloudSoft.Data;
 using CloudSoft.Domain;
@@ -9,8 +10,6 @@ public static class CosmosExtensions
     public static IServiceCollection AddCosmosDb(this IServiceCollection services,
         IConfiguration configuration, IHostEnvironment environment)
     {
-        var connectionString = configuration.GetConnectionString("CosmosDb")
-            ?? throw new InvalidOperationException("CosmosDB connection string is not configured.");
         var databaseName = configuration.GetValue<string>("CosmosDb:DatabaseName") ?? Constants.DefaultDatabaseName;
         var containerName = configuration.GetValue<string>("CosmosDb:ContainerName") ?? Constants.DefaultContainerName;
 
@@ -20,8 +19,14 @@ public static class CosmosExtensions
             ConnectionMode = ConnectionMode.Gateway,
         };
 
+        CosmosClient client;
+
         if (environment.IsDevelopment())
         {
+            // Development: use connection string (CosmosDB emulator).
+            var connectionString = configuration.GetConnectionString("CosmosDb")
+                ?? throw new InvalidOperationException("CosmosDB connection string is not configured for development.");
+
             // Disable SocketsHttpHandler to allow custom HttpClientHandler cert validation.
 #pragma warning disable SYSLIB0014
             AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
@@ -36,9 +41,19 @@ public static class CosmosExtensions
                 };
                 return new HttpClient(handler);
             };
+
+            client = new CosmosClient(connectionString, options);
+        }
+        else
+        {
+            // Production: use Managed Identity (DefaultAzureCredential) with endpoint URI.
+            var endpoint = configuration.GetValue<string>("CosmosDb:Endpoint")
+                ?? throw new InvalidOperationException("CosmosDb:Endpoint is not configured for production.");
+
+            var credential = new DefaultAzureCredential();
+            client = new CosmosClient(endpoint, credential, options);
         }
 
-        var client = new CosmosClient(connectionString, options);
         services.AddSingleton(client);
 
         services.AddSingleton<IRepository<JobPosting>>(sp =>
@@ -64,6 +79,6 @@ public static class CosmosExtensions
         var containerName = configuration.GetValue<string>("CosmosDb:ContainerName") ?? Constants.DefaultContainerName;
 
         var database = await client.CreateDatabaseIfNotExistsAsync(databaseName);
-        await database.Database.CreateContainerIfNotExistsAsync(containerName, Constants.PartitionKey);
+        await database.Database.CreateContainerIfNotExistsAsync(containerName, Constants.PartitionKeyPath);
     }
 }

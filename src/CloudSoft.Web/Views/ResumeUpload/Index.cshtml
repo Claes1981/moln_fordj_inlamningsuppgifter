@@ -1,0 +1,23 @@
+@{
+    ViewData["Title"] = "Upload Resume";
+}
+
+<h2>Upload Resume</h2>
+
+@if (ViewData["Success"] is bool success && success)
+{
+    <div class="alert alert-success">
+        <strong>Resume uploaded successfully!</strong>
+    </div>
+}
+
+@Html.ValidationSummary(true, "", new { @class = "text-danger" })
+
+<form asp-action="Upload" asp-controller="ResumeUpload" method="post" enctype="multipart/form-data">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="mb-3">
+        <label for="file" class="form-label">Resume (PDF only, max 5 MB)</label>
+        <input type="file" name="file" id="file" class="form-control" accept=".pdf,application/pdf" />
+    </div>
+    <button type="submit" class="btn btn-primary">Upload</button>
+</form>
