@@ -486,6 +486,7 @@ $RECYCLE.BIN/
 !.pi/agents
 .pi/agents/*
 !.pi/agents/supervisor.md
+.atl/
 
 # Cache directory used for Docker build when internet is not accessible
 .nuget-cache/
