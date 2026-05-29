@@ -129,7 +129,7 @@ resource storageBlobDataContributorRole 'Microsoft.Authorization/roleAssignments
   }
 }
 
-var cosmosConnectionString = 'AccountEndpoint=${cosmosAccount.properties.documentEndpoint};AccountKey=${cosmosAccount.listKeys().primaryMasterKey};'
+var cosmosEndpoint = cosmosAccount.properties.documentEndpoint
 
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: '${appName}-${uniqueSuffix}'
@@ -156,12 +156,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         // the Bicep type definitions are updated. Container Apps will use
         // default probes by targeting the container's port.
       }
-      secrets: [
-        {
-          name: 'cosmos-connection-string'
-          value: cosmosConnectionString
-        }
-      ]
+      secrets: []
     }
     template: {
       scale: {
@@ -182,8 +177,8 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: 'Production'
             }
             {
-              name: 'ConnectionStrings__CosmosDb'
-              secretRef: 'cosmos-connection-string'
+              name: 'CosmosDb__Endpoint'
+              value: cosmosEndpoint
             }
             {
               name: 'CosmosDb__DatabaseName'
