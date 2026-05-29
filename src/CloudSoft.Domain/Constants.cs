@@ -6,7 +6,8 @@ namespace CloudSoft.Domain;
 public static class Constants
 {
     /// <summary>CosmosDB container partition key path.</summary>
-    public const string PartitionKey = "/PartitionKey";
+    /// <summary>Partition key path for CosmosDB containers.</summary>
+    public const string PartitionKeyPath = "/PartitionKey";
 
     /// <summary>Default CosmosDB database name.</summary>
     public const string DefaultDatabaseName = "CloudSoft";

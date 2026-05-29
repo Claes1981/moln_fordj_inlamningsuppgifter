@@ -1,109 +1,194 @@
-# Repo Context
 
-Course assignment: "Inlämningsuppgift 1" for MolnFordj (Cloud Developer) program. Build a containerized .NET MVC web app (CloudSoft Recruitment Portal) and deploy it to Azure Container Apps with CI/CD.
+# PROJECT KNOWLEDGE BASE
 
-## Architecture
+**Generated:** 2026-05-26
 
-4-project multi-layer solution in `src/`, wired together by `CloudSoft.slnx` (VS2022 v2 solution format — no `.sln` file exists):
+## OVERVIEW
+
+Project: **CloudSoft Recruitment Portal**
+Stack: **.NET 10.0**, ASP.NET Core MVC + REST API, CosmosDB, Azure Blob Storage, ASP.NET Core Identity, Azure Container Apps, Bicep, GitHub Actions, Podman
+
+Course assignment for "Molnapplikationer Fördjupning" (course in Cloud Developer program). Currently implementing **Inlämningsuppgift 2** (Observability, REST API, File Upload, Deep Health Probes) on branch `feature/inlamningsuppgift2`.
+
+## STRUCTURE
+
+```
+.
+├── CloudSoft.slnx              # VS2022 v2 solution (no .sln file)
+├── Dockerfile                  # Multi-stage aspnet:10.0 image
+├── docker-compose.yml          # Local dev stack (webapp + CosmosDB emulator)
+├── .dockerignore
+├── .gitignore
+├── AGENTS.md
+├── doc/
+│   ├── reports/               # Archived assignment reports (report1.md, report1.pdf, etc.)
+│   ├── tasks/                 # Assignment documents (gitignored PDFs + .md)
+│   └── user_stories/          # User story cards
+├── infra/
+│   └── main.bicep             # IaC: CosmosDB, Container Apps, Blob Storage
+├── .github/workflows/
+│   └── ci-cd.yml              # CI/CD: build → Docker Hub → deploy via Bicep
+└── src/
+    ├── CloudSoft.Domain/      # Entities, interfaces, enums, constants
+    ├── CloudSoft.Data/        # CosmosDB repository, Identity context, Blob storage
+    ├── CloudSoft.Services/    # Business logic (IJobPostingService)
+    └── CloudSoft.Web/         # MVC + REST API entrypoint, controllers, middleware, views
+```
+
+### Project Details
 
 | Project | Purpose |
 |---|---|
-| `CloudSoft.Domain` | Entities (`JobPosting`, `JobApplication`), enums (`JobPostingStatus`, `ApplicationStatus`), `IRepository<T>` interface, `Constants` class |
-| `CloudSoft.Data` | `CosmosRepository<T>` — generic CosmosDB repository; `ApplicationDbContext` + `ApplicationUser` + `IdentitySeeder` for ASP.NET Core Identity |
-| `CloudSoft.Services` | `IJobPostingService` / `JobPostingService` — business logic with CRUD + publish/close operations |
-| `CloudSoft.Web` | MVC app entrypoint, controllers, views, DI config in `Program.cs`, extension methods in `Extensions/` |
+| `CloudSoft.Domain` | Entities (`JobPosting`, `JobApplication`), enums (`JobPostingStatus`, `ApplicationStatus`), interfaces (`IRepository<T>`, `ICosmosEntity`, `IBlobService`), `Constants` |
+| `CloudSoft.Data` | `CosmosRepository<T>` (generic CosmosDB repo), `AzureBlobService` + `NoOpBlobService`, `ApplicationDbContext` + `ApplicationUser` + `IdentitySeeder` |
+| `CloudSoft.Services` | `IJobPostingService` / `JobPostingService` — CRUD + publish/close operations |
+| `CloudSoft.Web` | MVC + REST API entrypoint, controllers, views, middleware, health checks, DTOs, DI extensions |
 
-Dependency chain: Web → Services → Data → Domain. Web also references Domain directly.
+Dependency chain: **Web → Services → Data → Domain**. Web also references Domain directly.
 
-Controllers: `Home`, `Account`, `JobPostings`, `Health`.
+### Controllers
 
-DI is organized into extension methods:
-- `CosmosExtensions.AddCosmosDb` — registers `CosmosClient`, `IRepository<JobPosting>`, and `EnsureCosmosDbAsync`
-- `IdentityExtensions.AddCloudSoftIdentity` — registers Identity with InMemory/SQLite store, cookie auth config
+| Controller | Type | Auth | Route |
+|---|---|---|---|
+| `HomeController` | MVC | None | `/` |
+| `AccountController` | MVC | None (login/logout) | `/Account` |
+| `JobPostingsController` | MVC | `[Authorize(Roles = Administrator)]` | `/JobPostings` |
+| `ApiJobPostingsController` | `[ApiController]` | API Key middleware | `/api/JobPostings` |
+| `ResumeUploadController` | MVC | None (public upload) | `/ResumeUpload` |
+| `HealthController` | MVC | None | `/health`, `/health/live`, `/health/ready` |
 
-`Program.cs` is slim (~35 lines) — delegates all setup to extension methods.
+### Middleware Pipeline (in order)
 
-## Tech Stack
+1. `CorrelationIdMiddleware` — generates/reuses `X-Correlation-ID`, adds to logging scope
+2. `ApiKeyMiddleware` — validates `X-API-Key` header for `/api/*` routes (skips Swagger)
+3. Swagger (always enabled)
+4. Routing → Authentication → Authorization → MVC
 
-- **.NET 10.0** MVC web app with two user roles: `Candidate` and `Administrator`
-- **ASP.NET Core Identity** — `SignInManager`-based auth (replaced hardcoded cookie auth); InMemory store by default, SQLite switchable via `IdentityStore:Provider` config
-- **CosmosDB** via `Microsoft.Azure.Cosmos` (v3.59.0) — `CosmosClient` singleton registered in `CosmosExtensions`
-- **Entity Framework Core** — InMemory (`Microsoft.EntityFrameworkCore.InMemory`) or SQLite (`Microsoft.EntityFrameworkCore.Sqlite`) for Identity store
-- **Podman** — multi-stage Dockerfile + Podman Compose for local dev
-- **Azure Container Apps** — production hosting (DEPLOYED)
-- **GitHub Actions** — CI/CD pipeline (`.github/workflows/ci-cd.yml`)
-- **Bicep** — IaC for Azure resources (`infra/main.bicep`)
-- **User Secrets** — `UserSecretsId=cloudsoft-web-dev` in csproj for local config
+### Health Checks
 
-## Key Gotchas
+| Endpoint | Purpose | Dependencies |
+|---|---|---|
+| `/health/live` | Liveness probe — process alive? | None |
+| `/health/ready` | Readiness probe — startup complete | None |
+| `/health` | Detailed diagnostics | CosmosDB (`CosmosHealthCheck`), Blob Storage (`BlobHealthCheck`) |
 
-- **No `.sln` file** — solution is `CloudSoft.slnx` (VS2022 v2 format). Use `dotnet build src/CloudSoft.Web/CloudSoft.Web.csproj` or `dotnet run --project src/CloudSoft.Web/CloudSoft.Web.csproj`.
-- **CosmosDB connection string required** — `CosmosExtensions.AddCosmosDb` throws `InvalidOperationException` if `ConnectionStrings:CosmosDb` is missing. Configure via user secrets: `dotnet user-secrets --project src/CloudSoft.Web set ConnectionStrings:CosmosDb "..."`.
-- **CosmosDB emulator cert bypass** — merged into `CosmosExtensions.AddCosmosDb` for Development: disables `SocketsHttpHandler` via `AppContext.SetSwitch`, sets `DangerousAcceptAnyServerCertificateValidator` on `HttpClientFactory`, and uses `ConnectionMode.Gateway`.
+## COMMANDS
+
+| Action | Command |
+|--------|---------|
+| Build | `dotnet build src/CloudSoft.Web/CloudSoft.Web.csproj` |
+| Run locally | `dotnet run --project src/CloudSoft.Web/CloudSoft.Web.csproj` |
+| List secrets | `dotnet user-secrets --project src/CloudSoft.Web list` |
+| Set secret | `dotnet user-secrets --project src/CloudSoft.Web set ConnectionStrings:CosmosDb "..."` |
+| Build container | `podman build --format docker -t cloudsoft-recruitment .` |
+| Run full stack | `podman compose up` |
+
+## CODING STANDARDS
+
+- **Language**: C# 12 / .NET 10.0, top-level statements in `Program.cs`
+- **Style**: Expression-bodied members where concise, braces on all control flow, XML doc comments on public APIs
+- **Patterns**:
+  - Repository pattern via `IRepository<T>` constrained to `ICosmosEntity`
+  - Service layer (`IJobPostingService`) between controllers and data
+  - DI organized into extension methods (`CosmosExtensions`, `IdentityExtensions`)
+  - Structured logging with `ILogger<T>` message templates
+  - `CancellationToken` propagated through all async methods
+  - DTOs for REST API boundaries (`JobPostingDto`, `JobPostingOutputDto`)
+  - Interface-based blob storage (`IBlobService`) with conditional DI (`AzureBlobService` or `NoOpBlobService`)
+- **No linter/formatter config** — relies on Visual Studio defaults
+- **No tests** — `tests/` directory is empty
+
+## WHERE TO LOOK
+
+- **Source**: `src/` (4 projects)
+- **Tests**: `tests/` (empty)
+- **Docs**: `doc/` (reports in `doc/reports/`, tasks in `doc/tasks/`)
+- **Infrastructure**: `infra/main.bicep`
+- **CI/CD**: `.github/workflows/ci-cd.yml`
+- **Container**: `Dockerfile`, `docker-compose.yml`
+
+## KEY GOTCHAS
+
+- **No `.sln` file** — solution is `CloudSoft.slnx` (VS2022 v2 format). Always target `.csproj` directly.
+- **CosmosDB connection string required** — `CosmosExtensions.AddCosmosDb` throws `InvalidOperationException` if `ConnectionStrings:CosmosDb` is missing. Configure via user secrets or env vars.
+- **CosmosDB emulator cert bypass** — `CosmosExtensions.AddCosmosDb` handles this in Development: disables `SocketsHttpHandler`, sets `DangerousAcceptAnyServerCertificateValidator`, uses `ConnectionMode.Gateway`.
 - **Auto-creates database/container** — `EnsureCosmosDbAsync()` called in `Program.cs` on startup.
 - **`SecurePolicy.None` in Development** — `IdentityExtensions` relaxes cookie security for local HTTP dev; `Always` in production.
 - **`SameSiteMode.Strict`** — used instead of `SameSite.Lax` (compilation error in .NET 10). Deprecation warning is acceptable.
-- **JobPostingsController is admin-only** — `[Authorize(Roles = Constants.AdministratorRole)]` on the entire controller.
 - **`aspnet:10.0` is chiseled** — no `curl`, no `adduser`. Dockerfile has no HEALTHCHECK or non-root user.
-- **Assignment docs are gitignored** — `doc/task/assignment-acd-1-swe.pdf` and `.md` are in `.gitignore`. Don't commit them.
-- **No tests exist** — `tests/` directory is empty.
-- **PartitionKey required** — Both `JobPosting` and `JobApplication` entities must have a `PartitionKey` property matching the CosmosDB container's partition key path (`/PartitionKey`). The `CosmosRepository` defaults to `Constants.PartitionKey`.
+- **Assignment docs are gitignored** — `doc/*/` patterns in `.gitignore`. Don't commit PDFs or task docs.
+- **PartitionKey required** — All CosmosDB entities implement `ICosmosEntity` with `Id` and `PartitionKey`. `CosmosRepository<T>` reads the partition key value dynamically from `entity.PartitionKey`.
+- **Blob Storage is conditional** — `AzureBlobService` registered only if `BlobStorage` config exists; otherwise `NoOpBlobService` is used for local dev.
+- **API Key middleware** — validates `X-API-Key` header for `/api/*` routes. Configured via `ApiKey:Keys` in app settings. Skips Swagger routes.
+- **`appsettings.Development.json` is gitignored** — use user secrets or environment variables for local config.
+- **`appsettings.json` uses JSON console logging** — `IncludeScopes: true` for correlation ID tracing.
 - **`ApplicationUser` is empty** — extends `IdentityUser` with no custom properties.
 - **`ApplicationDbContext` seeds roles in `OnModelCreating`** — hardcoded role data for EF migrations. `IdentitySeeder` handles runtime seeding (idempotent).
-- **`appsettings.Development.json` is gitignored** — contains hardcoded seed credentials. Use user secrets or environment variables for local dev.
+- **Environment variable convention** — double-underscore (`__`) for nested config (e.g., `ConnectionStrings__CosmosDb`, `BlobStorage__AccountUrl`).
 
-## Commands
+## CONFIGURATION
 
-- `dotnet build src/CloudSoft.Web/CloudSoft.Web.csproj` — verify compilation
-- `dotnet run --project src/CloudSoft.Web/CloudSoft.Web.csproj` — run locally (requires CosmosDB connection string via user secrets or env)
-- `dotnet user-secrets --project src/CloudSoft.Web list` — view configured secrets
-- `podman build --format docker -t cloudsoft-recruitment .` — build container image
-- `podman compose up` — run full stack (webapp + CosmosDB emulator)
-
-## Configuration
-
-- `src/CloudSoft.Web/appsettings.json` — minimal config (logging, AllowedHosts), no connection strings
-- `src/CloudSoft.Web/appsettings.Development.json` — gitignored; may contain seed credentials
+- `src/CloudSoft.Web/appsettings.json` — JSON console logging config, AllowedHosts
+- `src/CloudSoft.Web/appsettings.Development.json` — gitignored; seed credentials
 - All config via environment variables, user secrets, or `.env` (gitignored):
-  - `ConnectionStrings:CosmosDb` — required
-  - `CosmosDb:DatabaseName` — defaults to `CloudSoft` (via `Constants.DefaultDatabaseName`)
-  - `CosmosDb:ContainerName` — defaults to `JobPostings` (via `Constants.DefaultContainerName`)
-  - `IdentityStore:Provider` — `"inmemory"` (default) or `"sqlite"`
-  - `ConnectionStrings:IdentityDb` — SQLite connection string (defaults to `cloudsoft_identity.db`)
-  - `AdminSeed:Username`, `AdminSeed:Password`, `AdminSeed:Email` — seed admin credentials (defaults: `admin` / `Admin123!` / `admin@cloudsoft.com`)
 
-## Constants (Centralized in `CloudSoft.Domain.Constants`)
+| Setting | Default | Used By |
+|---|---|---|
+| `ConnectionStrings:CosmosDb` | *(required)* | CosmosExtensions |
+| `CosmosDb:DatabaseName` | `CloudSoft` | CosmosExtensions, Bicep |
+| `CosmosDb:ContainerName` | `JobPostings` | CosmosExtensions, Bicep |
+| `IdentityStore:Provider` | `inmemory` | IdentityExtensions |
+| `ConnectionStrings:IdentityDb` | `cloudsoft_identity.db` | IdentityExtensions (SQLite) |
+| `AdminSeed:Username` | `admin` | IdentitySeeder |
+| `AdminSeed:Password` | `Admin123!` | IdentitySeeder |
+| `AdminSeed:Email` | `admin@cloudsoft.com` | IdentitySeeder |
+| `BlobStorage__AccountUrl` | *(none)* | AzureBlobService (Managed Identity) |
+| `ConnectionStrings:BlobStorage` | *(none)* | AzureBlobService (connection string) |
+| `ApiKey:Keys` | *(none)* | ApiKeyMiddleware |
+
+## CONSTANTS (Centralized in `CloudSoft.Domain.Constants`)
 
 | Constant | Value | Used By |
 |---|---|---|
-| `PartitionKey` | `/PartitionKey` | CosmosRepository, CosmosExtensions, Bicep |
+| `PartitionKeyPath` | `/PartitionKey` | CosmosRepository, CosmosExtensions, Bicep |
 | `DefaultDatabaseName` | `CloudSoft` | CosmosExtensions, Bicep |
 | `DefaultContainerName` | `JobPostings` | CosmosExtensions, Bicep |
 | `AdministratorRole` | `Administrator` | JobPostingsController, IdentitySeeder, ApplicationDbContext |
 | `CandidateRole` | `Candidate` | IdentitySeeder, ApplicationDbContext |
 | `Roles[]` | `{ Administrator, Candidate }` | IdentitySeeder |
 
-## Deployment
+## DEPLOYMENT
 
 - **Deployed URL**: `https://cloudsoft-x94s8o.lemonisland-d700b917.northeurope.azurecontainerapps.io`
 - **Resource Group**: `cloudsoft-rg` in `northeurope`
-- **Bicep**: `infra/main.bicep` provisions CosmosDB (autoscale 1000 RU), Container Apps environment (Azure Monitor logging), and web app (1-3 replicas, 0.5 CPU, 1Gi RAM)
+- **Bicep**: `infra/main.bicep` provisions CosmosDB (autoscale 1000 RU, `disableLocalAuth: true`), Container Apps environment (Azure Monitor logging), Blob Storage, and web app (1-3 replicas, 0.5 CPU, 1Gi RAM, TLS via `transport: 'auto'`)
 - **CI/CD**: `.github/workflows/ci-cd.yml` builds Docker image to Docker Hub (tagged by SHA + `latest`) and deploys via Bicep
 - **Container Image**: `claes1981/cloudsoft-recruitment:latest` on Docker Hub
-- **Cosmos connection string** injected as Container Apps secret → env var
+- **Secrets injected as Container Apps secrets → env vars**: `ConnectionStrings:CosmosDb`, `BlobStorage__AccountUrl`
 
-## Assignment Status
+## ASSIGNMENT STATUS
 
-- Delmoment 1 (Agile/user stories): DONE — user stories in `doc/user_stories/`
-- Delmoment 2 (Containerization): DONE — Dockerfile + docker-compose.yml, tested with podman
-- Delmoment 3 (Auth + data layer): DONE — ASP.NET Core Identity, role control, CosmosDB repository, job postings CRUD
-- Delmoment 4 (CI/CD + Azure): DONE — GitHub Actions workflow + Bicep IaC, deployed to Azure
-- Delmoment 5 (Verification): IN PROGRESS — app accessible, CRUD operations need testing
-- Report: IN PROGRESS — `doc/report.md` needs update for Delmoment 4-5
+- **Assignment 1**: ✅ Submitted — archived in `doc/reports/` (`report1.md`, `report1.pdf`, `screenshot_app1.png`)
+- **Assignment 2**: 🔄 In progress on `feature/inlamningsuppgift2`
+  - ✅ Delmoment 1: Observability (structured logging, correlation ID)
+  - ✅ Delmoment 2: REST API (DTOs, Swagger, API key middleware)
+  - ✅ Delmoment 3: File upload + health probes (Azure Blob, Managed Identity, deep probes)
+  - 🔄 Delmoment 4: Architecture review (Bicep Blob Storage provisioning, report)
 
-## Constraints
+## CONSTRAINTS
 
 - Secrets must **never** be committed. Use GitHub Actions secrets, Azure Key Vault, or user secrets.
 - `.env` files are gitignored — use them for local config only.
 - Keep it simple: use only tools and patterns covered in course labs at https://cloud-dev-25.educ8.se/exercises/
-- Course exercises reference: Webapp (10-webapp-development), Docker (20-docker), Deployment (3-deployment/9-cicd-to-container-apps), Cloud DB (5-cloud-databases)
+- Course exercises referenced:
+  - Structured logging: `3-deployment/10-logging-and-monitoring/1-structured-logging-ilogger/`
+  - Container logs to Log Analytics: `3-deployment/10-logging-and-monitoring/2-container-logs-to-log-analytics/`
+  - REST API & DTOs: `4-services-and-apis/1-rest-api-and-dtos/1-rest-controllers-and-dtos/`
+  - API Key Middleware: `4-services-and-apis/1-rest-api-and-dtos/3-api-key-middleware/`
+  - MVC Uploads & PDF validation: `6-storage-and-resilience/1-uploads-and-deep-probes/1-mvc-uploads-and-pdf-validation/`
+  - Cosmos/Blob via Managed Identity: `6-storage-and-resilience/1-uploads-and-deep-probes/2-cosmos-and-blob-via-managed-identity/`
+  - Deep health probes: `6-storage-and-resilience/1-uploads-and-deep-probes/3-deep-health-probes-and-cleanup/`
+
+## CONTEXT FILES
+
+- No `.cursorrules`, `CLAUDE.md`, or other AI config files found in this repository.
