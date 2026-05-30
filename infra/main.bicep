@@ -105,30 +105,6 @@ resource storageContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
   dependsOn: [storageAccount]
 }
 
-// Managed Identity: give the Container App role to access CosmosDB
-// Implicit dependency via containerApp.identity.principalId
-resource cosmosDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerApp.name, cosmosAccount.id, 'CosmosDB Built-in Data Contributor')
-  scope: cosmosAccount
-  properties: {
-    roleDefinitionId: '/providers/Microsoft.Authorization/roleDefinitions/a232010e-820c-4b89-b37f-1a17d42acc76'
-    principalId: containerApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Managed Identity: give the Container App role to access Blob Storage
-// Implicit dependency via containerApp.identity.principalId
-resource storageBlobDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerApp.name, storageAccount.id, 'Storage Blob Data Contributor')
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: '/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-    principalId: containerApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
 var cosmosEndpoint = cosmosAccount.properties.documentEndpoint
 
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
@@ -203,6 +179,38 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   dependsOn: [
     cosmosContainer
     storageContainer
+  ]
+}
+
+// Managed Identity: give the Container App role to access CosmosDB
+// Must be after containerApp so principalId is resolved. Explicit dependsOn avoids circular provisioning.
+resource cosmosDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerApp.name, cosmosAccount.id, 'CosmosDB Built-in Data Contributor')
+  scope: cosmosAccount
+  properties: {
+    roleDefinitionId: '/providers/Microsoft.Authorization/roleDefinitions/a232010e-820c-4b89-b37f-1a17d42acc76'
+    principalId: containerApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [
+    containerApp
+    cosmosAccount
+  ]
+}
+
+// Managed Identity: give the Container App role to access Blob Storage
+// Must be after containerApp so principalId is resolved. Explicit dependsOn avoids circular provisioning.
+resource storageBlobDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerApp.name, storageAccount.id, 'Storage Blob Data Contributor')
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: '/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+    principalId: containerApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [
+    containerApp
+    storageAccount
   ]
 }
 
