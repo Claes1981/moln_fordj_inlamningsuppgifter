@@ -182,39 +182,15 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   ]
 }
 
-// Managed Identity: give the Container App role to access CosmosDB
-// Must be after containerApp so principalId is resolved. Explicit dependsOn avoids circular provisioning.
-resource cosmosDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerApp.name, cosmosAccount.id, 'CosmosDB Built-in Data Contributor')
-  scope: cosmosAccount
-  properties: {
-    roleDefinitionId: '/providers/Microsoft.Authorization/roleDefinitions/a232010e-820c-4b89-b37f-1a17d42acc76'
-    principalId: containerApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-  dependsOn: [
-    containerApp
-    cosmosAccount
-  ]
-}
-
-// Managed Identity: give the Container App role to access Blob Storage
-// Must be after containerApp so principalId is resolved. Explicit dependsOn avoids circular provisioning.
-resource storageBlobDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerApp.name, storageAccount.id, 'Storage Blob Data Contributor')
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: '/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-    principalId: containerApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-  dependsOn: [
-    containerApp
-    storageAccount
-  ]
-}
+// NOTE: Role assignments for Managed Identity are applied via CLI post-deployment
+// (in CI/CD workflow) because ARM cannot resolve built-in role definitions scoped to
+// newly-created resources with disableLocalAuth:true in the same deployment operation.
+// See: https://learn.microsoft.com/azure/role-based-access-control/built-in-roles
 
 // Outputs
 output appUrl string = containerApp.properties.configuration.ingress.fqdn
 output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint
 output storageAccountName string = storageAccount.name
+output containerAppPrincipalId string = containerApp.identity.principalId
+output cosmosAccountId string = cosmosAccount.id
+output storageAccountId string = storageAccount.id

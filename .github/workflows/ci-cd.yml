@@ -66,6 +66,7 @@ jobs:
               --only-show-errors 2>/dev/null || true
 
       - name: Provision Bicep infrastructure
+        id: bicep-deploy
         uses: azure/cli@v2
         with:
           inlineScript: |
@@ -76,6 +77,31 @@ jobs:
                  uniqueSuffix=${{ env.UNIQUE_SUFFIX }} \
                  dockerHubUsername=${{ secrets.DOCKERHUB_USERNAME }} \
                  containerImage=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            # Capture outputs for post-deployment steps
+            echo "principal_id=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name main --query properties.outputs.containerAppPrincipalId.value -o tsv)" >> $GITHUB_OUTPUT
+            echo "cosmos_account_id=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name main --query properties.outputs.cosmosAccountId.value -o tsv)" >> $GITHUB_OUTPUT
+            echo "storage_account_id=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name main --query properties.outputs.storageAccountId.value -o tsv)" >> $GITHUB_OUTPUT
+
+      - name: Assign Managed Identity roles
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            # Wait for managed identity to propagate
+            sleep 10
+
+            # Cosmos DB Built-in Data Contributor
+            az role assignment create \
+              --role "a232010e-820c-4b89-b37f-1a17d42acc76" \
+              --assignee-object-id ${{ steps.bicep-deploy.outputs.principal_id }} \
+              --scope ${{ steps.bicep-deploy.outputs.cosmos_account_id }} \
+              --assignee-principal-type ServicePrincipal
+
+            # Storage Blob Data Contributor
+            az role assignment create \
+              --role "ba92f5b4-2d11-453d-a403-e96b0029c9fe" \
+              --assignee-object-id ${{ steps.bicep-deploy.outputs.principal_id }} \
+              --scope ${{ steps.bicep-deploy.outputs.storage_account_id }} \
+              --assignee-principal-type ServicePrincipal
 
       - name: Verify provisioning
         uses: azure/cli@v2
