@@ -89,16 +89,16 @@ jobs:
             # Wait for managed identity to propagate
             sleep 10
 
-            # Cosmos DB Built-in Data Contributor
+            # Cosmos DB Built-in Data Contributor (use role NAME, not GUID)
             az role assignment create \
-              --role "a232010e-820c-4b89-b37f-1a17d42acc76" \
+              --role "Cosmos DB Built-in Data Contributor" \
               --assignee-object-id ${{ steps.bicep-deploy.outputs.principal_id }} \
               --scope ${{ steps.bicep-deploy.outputs.cosmos_account_id }} \
               --assignee-principal-type ServicePrincipal
 
-            # Storage Blob Data Contributor
+            # Storage Blob Data Contributor (use role NAME, not GUID)
             az role assignment create \
-              --role "ba92f5b4-2d11-453d-a403-e96b0029c9fe" \
+              --role "Storage Blob Data Contributor" \
               --assignee-object-id ${{ steps.bicep-deploy.outputs.principal_id }} \
               --scope ${{ steps.bicep-deploy.outputs.storage_account_id }} \
               --assignee-principal-type ServicePrincipal
