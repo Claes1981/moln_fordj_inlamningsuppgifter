@@ -183,12 +183,13 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
 }
 
 // Role assignments for the Container App's Managed Identity
+// Use newGuid() for name — principalId is only known at runtime (BCP120)
 // Cosmos DB: data-plane RBAC (built-in Data Contributor)
 resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-05-15' = {
-  name: guid(cosmosAccount.id, containerApp.identity.principalId, 'cosmosDataContributor')
+  name: guid(cosmosAccount.id, 'cosmosDataContributor')
   properties: {
     principalId: containerApp.identity.principalId
-    roleDefinitionId: cosmosAccount.id '/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
+    roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
     scope: cosmosAccount.id
   }
   dependsOn: [containerApp, cosmosAccount]
@@ -196,7 +197,7 @@ resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAss
 
 // Storage: Azure RBAC (built-in Storage Blob Data Contributor)
 resource storageBlobDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, containerApp.identity.principalId, 'storageBlobDataContributor')
+  name: guid(storageAccount.id, 'storageBlobDataContributor')
   properties: {
     principalId: containerApp.identity.principalId
     roleDefinitionId: '/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe'
