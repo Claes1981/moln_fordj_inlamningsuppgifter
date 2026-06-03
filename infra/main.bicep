@@ -192,5 +192,6 @@ output appUrl string = containerApp.properties.configuration.ingress.fqdn
 output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint
 output storageAccountName string = storageAccount.name
 output containerAppPrincipalId string = containerApp.identity.principalId
+output cosmosAccountName string = cosmosAccount.name
 output cosmosAccountId string = cosmosAccount.id
 output storageAccountId string = storageAccount.id

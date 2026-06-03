@@ -75,34 +75,25 @@ jobs:
               containerImage=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           # Capture outputs for post-deployment steps
           echo "principal_id=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name main --query properties.outputs.containerAppPrincipalId.value -o tsv)" >> $GITHUB_OUTPUT
-          echo "cosmos_account_id=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name main --query properties.outputs.cosmosAccountId.value -o tsv)" >> $GITHUB_OUTPUT
+          echo "cosmos_account_name=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name main --query properties.outputs.cosmosAccountName.value -o tsv)" >> $GITHUB_OUTPUT
           echo "storage_account_id=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name main --query properties.outputs.storageAccountId.value -o tsv)" >> $GITHUB_OUTPUT
 
       - name: Assign Managed Identity roles
         run: |
-          # Wait for built-in role definitions to propagate at resource scopes.
-          # "Cosmos DB Built-in Data Contributor" is resource-scoped (disableLocalAuth:true)
-          # and is not in the subscription-level role catalog.
+          # Wait for managed identity and built-in role definitions to propagate.
           sleep 30
 
-          # Query the resource-scoped role definition ID from the Cosmos account scope
-          COSMOS_ROLE_ID=$(az role definition list \
-            --scope ${{ steps.bicep-deploy.outputs.cosmos_account_id }} \
-            --query "[?name=='Cosmos DB Built-in Data Contributor'].id[0]" \
-            --output tsv)
-          if [ -z "$COSMOS_ROLE_ID" ]; then
-            echo "ERROR: Could not find 'Cosmos DB Built-in Data Contributor' role at Cosmos scope"
-            exit 1
-          fi
-          echo "Cosmos role definition ID: $COSMOS_ROLE_ID"
+          # Cosmos DB: data-plane RBAC (separate registry from Azure RBAC).
+          # Uses az cosmosdb sql role assignment, not az role assignment.
+          # Built-in Data Contributor ID is always 00000000-0000-0000-0000-000000000002.
+          az cosmosdb sql role assignment create \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --account-name ${{ steps.bicep-deploy.outputs.cosmos_account_name }} \
+            --role-definition-id 00000000-0000-0000-0000-000000000002 \
+            --principal-id ${{ steps.bicep-deploy.outputs.principal_id }} \
+            --scope "/"
 
-          az role assignment create \
-            --role "$COSMOS_ROLE_ID" \
-            --assignee-object-id ${{ steps.bicep-deploy.outputs.principal_id }} \
-            --scope ${{ steps.bicep-deploy.outputs.cosmos_account_id }} \
-            --assignee-principal-type ServicePrincipal
-
-          # Storage Blob Data Contributor (subscription-level built-in, name resolution works)
+          # Storage Blob Data Contributor: regular Azure RBAC
           az role assignment create \
             --role "Storage Blob Data Contributor" \
             --assignee-object-id ${{ steps.bicep-deploy.outputs.principal_id }} \
