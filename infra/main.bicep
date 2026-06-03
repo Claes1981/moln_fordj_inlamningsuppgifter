@@ -182,10 +182,28 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   ]
 }
 
-// NOTE: Role assignments for Managed Identity are applied via CLI post-deployment
-// (in CI/CD workflow) because ARM cannot resolve built-in role definitions scoped to
-// newly-created resources with disableLocalAuth:true in the same deployment operation.
-// See: https://learn.microsoft.com/azure/role-based-access-control/built-in-roles
+// Role assignments for the Container App's Managed Identity
+// Cosmos DB: data-plane RBAC (built-in Data Contributor)
+resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-05-15' = {
+  name: guid(cosmosAccount.id, containerApp.identity.principalId, 'cosmosDataContributor')
+  properties: {
+    principalId: containerApp.identity.principalId
+    roleDefinitionId: cosmosAccount.id '/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
+    scope: cosmosAccount.id
+  }
+  dependsOn: [containerApp, cosmosAccount]
+}
+
+// Storage: Azure RBAC (built-in Storage Blob Data Contributor)
+resource storageBlobDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, containerApp.identity.principalId, 'storageBlobDataContributor')
+  properties: {
+    principalId: containerApp.identity.principalId
+    roleDefinitionId: '/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [containerApp, storageAccount]
+}
 
 // Outputs
 output appUrl string = containerApp.properties.configuration.ingress.fqdn
