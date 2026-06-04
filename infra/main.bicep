@@ -186,7 +186,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
 // Use newGuid() for name — principalId is only known at runtime (BCP120)
 // Cosmos DB: data-plane RBAC (built-in Data Contributor)
 resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-05-15' = {
-  name: guid(cosmosAccount.id, 'cosmosDataContributor')
+  name: '${cosmosAccount.name}/${guid(cosmosAccount.id, 'cosmosDataContributor')}'
   properties: {
     principalId: containerApp.identity.principalId
     roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
