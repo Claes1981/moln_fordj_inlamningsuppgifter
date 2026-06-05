@@ -78,28 +78,28 @@ jobs:
           echo "cosmos_account_name=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name main --query properties.outputs.cosmosAccountName.value -o tsv)" >> $GITHUB_OUTPUT
           echo "storage_account_id=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name main --query properties.outputs.storageAccountId.value -o tsv)" >> $GITHUB_OUTPUT
 
-      - name: Print role assignment commands
+      - name: Assign MI roles (CosmosDB + Blob Storage)
         run: |
-          echo "============================================"
-          echo "MANUAL: Assign roles to Container App MI"
-          echo "============================================"
-          echo "Run the following commands locally (az login first):"
-          echo ""
-          echo "# 1. Cosmos DB Data Contributor"
-          echo "az cosmosdb sql role assignment create \\\"
-          echo "  --account-name ${{ steps.bicep-deploy.outputs.cosmos_account_name }} \\\"
-          echo "  --resource-group ${{ env.RESOURCE_GROUP }} \\\"
-          echo "  --role-definition-id 00000000-0000-0000-0000-000000000002 \\\"
-          echo "  --scope $(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name main --query properties.outputs.cosmosAccountId.value -o tsv) \\\"
-          echo "  --principal-id ${{ steps.bicep-deploy.outputs.principal_id }}"
-          echo ""
-          echo "# 2. Storage Blob Data Contributor"
-          echo "az role assignment create \\\"
-          echo "  --role 'Storage Blob Data Contributor' \\\"
-          echo "  --assignee-object-id ${{ steps.bicep-deploy.outputs.principal_id }} \\\"
-          echo "  --scope ${{ steps.bicep-deploy.outputs.storage_account_id }}"
-          echo "============================================"
-
+          COSMOS_ACCOUNT_ID=$(az deployment group show \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name main \
+            --query properties.outputs.cosmosAccountId.value \
+            --output tsv)
+          echo "Assigning Cosmos DB Data Contributor to MI ${{ steps.bicep-deploy.outputs.principal_id }}"
+          az cosmosdb sql role assignment create \
+            --account-name ${{ steps.bicep-deploy.outputs.cosmos_account_name }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --role-definition-id 00000000-0000-0000-0000-000000000002 \
+            --scope "$COSMOS_ACCOUNT_ID" \
+            --principal-id ${{ steps.bicep-deploy.outputs.principal_id }}
+          echo "Assigning Storage Blob Data Contributor to MI"
+          az role assignment create \
+            --role "Storage Blob Data Contributor" \
+            --assignee-object-id ${{ steps.bicep-deploy.outputs.principal_id }} \
+            --scope ${{ steps.bicep-deploy.outputs.storage_account_id }}
+          # Role assignments propagate asynchronously; wait before smoke test.
+          echo "Waiting 30s for role assignments to propagate..."
+          sleep 30
       - name: Verify provisioning
         run: |
           APP_FQDN=$(az deployment group show \
