@@ -182,29 +182,24 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   ]
 }
 
-// Role assignments for the Container App's Managed Identity
-// Use newGuid() for name — principalId is only known at runtime (BCP120)
-// Cosmos DB: data-plane RBAC (built-in Data Contributor)
-resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-05-15' = {
-  name: '${cosmosAccount.name}/${guid(cosmosAccount.id, 'cosmosDataContributor')}'
-  properties: {
-    principalId: containerApp.identity.principalId
-    roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
-    scope: cosmosAccount.id
-  }
-  dependsOn: [containerApp, cosmosAccount]
-}
-
-// Storage: Azure RBAC (built-in Storage Blob Data Contributor)
-resource storageBlobDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, 'storageBlobDataContributor')
-  properties: {
-    principalId: containerApp.identity.principalId
-    roleDefinitionId: '/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-    principalType: 'ServicePrincipal'
-  }
-  dependsOn: [containerApp, storageAccount]
-}
+// NOTE: Role assignments for the Container App's Managed Identity are
+// applied post-deployment via `az role assignment create` because the
+// GitHub Actions OIDC service principal lacks Microsoft.Authorization/roleAssignments/write.
+//
+// Required assignments (run after Bicep succeeds):
+//   1. Cosmos DB Data Contributor:
+//     az cosmosdb sql role assignment create \
+//       --account-name <cosmosAccountName> \
+//       --resource-group <rg> \
+//       --role-definition-id 00000000-0000-0000-0000-000000000002 \
+//       --scope <cosmosAccountId> \
+//       --principal-id <containerAppPrincipalId>
+//
+//   2. Storage Blob Data Contributor:
+//     az role assignment create \
+//       --role "Storage Blob Data Contributor" \
+//       --assignee-object-id <containerAppPrincipalId> \
+//       --scope <storageAccountId>
 
 // Outputs
 output appUrl string = containerApp.properties.configuration.ingress.fqdn
