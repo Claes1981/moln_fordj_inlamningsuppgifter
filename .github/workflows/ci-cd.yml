@@ -116,5 +116,19 @@ jobs:
             --name main \
             --query properties.outputs.appUrl.value \
             --output tsv)
-          # Use /health/live (liveness probe) — no dependency checks, just process alive.
-          curl -f "https://$APP_FQDN/health/live" || exit 1
+          # Retry loop for Container Apps cold start.
+          # First deployment can take 2-5 min to boot from scratch.
+          # Retry every 15s for up to 10 min (40 attempts).
+          MAX_RETRIES=40
+          INTERVAL=15
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i/$MAX_RETRIES — checking https://$APP_FQDN/health/live ..."
+            if curl -f --max-time 10 "https://$APP_FQDN/health/live" 2>/dev/null; then
+              echo "\n✅ Smoke test passed on attempt $i"
+              exit 0
+            fi
+            echo " (not ready yet, waiting ${INTERVAL}s...)"
+            sleep $INTERVAL
+          done
+          echo "❌ Smoke test failed after $MAX_RETRIES attempts"
+          exit 1
