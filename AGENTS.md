@@ -2,13 +2,14 @@
 # PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-05-26
+**Updated:** 2026-06-07
 
 ## OVERVIEW
 
 Project: **CloudSoft Recruitment Portal**
 Stack: **.NET 10.0**, ASP.NET Core MVC + REST API, CosmosDB, Azure Blob Storage, ASP.NET Core Identity, Azure Container Apps, Bicep, GitHub Actions, Podman
 
-Course assignment for "Molnapplikationer Fördjupning" (course in Cloud Developer program). Currently implementing **Inlämningsuppgift 2** (Observability, REST API, File Upload, Deep Health Probes) on branch `feature/inlamningsuppgift2`.
+Course assignment for "Molnapplikationer Fördjupning" (course in Cloud Developer program). **Inlämningsuppgift 2** (Observability, REST API, File Upload, Deep Health Probes) is complete and merged to `main`.
 
 ## STRUCTURE
 
@@ -25,9 +26,10 @@ Course assignment for "Molnapplikationer Fördjupning" (course in Cloud Develope
 │   ├── tasks/                 # Assignment documents (gitignored PDFs + .md)
 │   └── user_stories/          # User story cards
 ├── infra/
-│   └── main.bicep             # IaC: CosmosDB, Container Apps, Blob Storage
+│   ├── main.bicep             # IaC: CosmosDB, Container Apps, Blob Storage
+│   └── provision.sh           # OIDC provisioning script (SP + federated credential + GitHub secrets)
 ├── .github/workflows/
-│   └── ci-cd.yml              # CI/CD: build → Docker Hub → deploy via Bicep
+│   └── ci-cd.yml              # CI/CD: build → Docker Hub → OIDC login → Bicep → MI role assignments → smoke test
 └── src/
     ├── CloudSoft.Domain/      # Entities, interfaces, enums, constants
     ├── CloudSoft.Data/        # CosmosDB repository, Identity context, Blob storage
@@ -162,18 +164,20 @@ Dependency chain: **Web → Services → Data → Domain**. Web also references 
 - **Deployed URL**: `https://cloudsoft-x94s8o.lemonisland-d700b917.northeurope.azurecontainerapps.io`
 - **Resource Group**: `cloudsoft-rg` in `northeurope`
 - **Bicep**: `infra/main.bicep` provisions CosmosDB (autoscale 1000 RU, `disableLocalAuth: true`), Container Apps environment (Azure Monitor logging), Blob Storage, and web app (1-3 replicas, 0.5 CPU, 1Gi RAM, TLS via `transport: 'auto'`)
-- **CI/CD**: `.github/workflows/ci-cd.yml` builds Docker image to Docker Hub (tagged by SHA + `latest`) and deploys via Bicep
+- **CI/CD**: `.github/workflows/ci-cd.yml` builds Docker image to Docker Hub (tagged by SHA + `latest`), logs in via OIDC (no `AZURE_CREDENTIALS` secret), deploys via Bicep, assigns MI roles (CosmosDB + Blob Storage), and runs a smoke test with retry loop for cold starts
 - **Container Image**: `claes1981/cloudsoft-recruitment:latest` on Docker Hub
 - **Secrets injected as Container Apps secrets → env vars**: `ConnectionStrings:CosmosDb`, `BlobStorage__AccountUrl`
+- **OIDC Provisioning**: `infra/provision.sh` creates service principal, federated credential, resource group, Owner role assignment, and sets GitHub secrets
+- **GitHub Secrets**: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
 
 ## ASSIGNMENT STATUS
 
 - **Assignment 1**: ✅ Submitted — archived in `doc/reports/` (`report1.md`, `report1.pdf`, `screenshot_app1.png`)
-- **Assignment 2**: 🔄 In progress on `feature/inlamningsuppgift2`
+- **Assignment 2**: ✅ Complete (merged to `main`)
   - ✅ Delmoment 1: Observability (structured logging, correlation ID)
   - ✅ Delmoment 2: REST API (DTOs, Swagger, API key middleware)
   - ✅ Delmoment 3: File upload + health probes (Azure Blob, Managed Identity, deep probes)
-  - 🔄 Delmoment 4: Architecture review (Bicep Blob Storage provisioning, report)
+  - ✅ Delmoment 4: Architecture review (Bicep Blob Storage provisioning, report)
 
 ## CONSTRAINTS
 
